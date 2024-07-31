@@ -18,6 +18,8 @@ from vllm.entrypoints.openai.protocol import (
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_engine import LoRAModulePath
 
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("ray.serve")
 
 app = FastAPI()
@@ -78,7 +80,7 @@ class VLLMDeployment:
                 # self.lora_modules,
                 # self.chat_template,
             )
-        logger.info(f"Request: {request}")
+        logger.debug(f"Request: {request}")
         generator = await self.openai_serving_chat.create_chat_completion(
             request, raw_request
         )
@@ -91,7 +93,6 @@ class VLLMDeployment:
         else:
             assert isinstance(generator, ChatCompletionResponse)
             return JSONResponse(content=generator.model_dump())
-
 
 def build_app(model_name, tensor_parallel_size) -> serve.Application:
     """Builds the Serve app based on CLI arguments.
@@ -122,6 +123,5 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
             # parsed_args.lora_modules,
             # parsed_args.chat_template,
         )
-
 
 deployment = build_app(model_name=model_name, tensor_parallel_size=tp_size)
