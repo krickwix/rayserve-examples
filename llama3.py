@@ -104,7 +104,7 @@ def parse_vllm_args(cli_args: Dict[str, str]):
     return parsed_args
 
 
-def build_app(cli_args: Dict[str, str]) -> serve.Application:
+def build_app(model_name, tensor_parallel_size) -> serve.Application:
     """Builds the Serve app based on CLI arguments.
 
     See https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html#command-line-arguments-for-the-server
@@ -121,7 +121,7 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
     engine_args = AsyncEngineArgs(
         model=model_name,
         model_type="text-conditional-generation",
-        tensor_parallel_size=tp,
+        tensor_parallel_size=tensor_parallel_size,
         worker_use_ray=True,
     )
     logger.info(f"Tensor parallelism = {tp}")
@@ -141,4 +141,4 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
         )
 
 
-deployment = build_app({"model": model_name, "tensor_parallel_size": tp_size})
+deployment = build_app(model_name=model_name, tensor_parallel_size=tp_size)
