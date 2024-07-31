@@ -38,14 +38,14 @@ class VLLMDeployment:
     def __init__(
         self,
         engine_args: AsyncEngineArgs,
-        response_role: str,
+        # response_role: str,
         lora_modules: Optional[List[LoRAModulePath]] = None,
         chat_template: Optional[str] = None,
     ):
         logger.info(f"Starting with engine args: {engine_args}")
         self.openai_serving_chat = None
         self.engine_args = engine_args
-        self.response_role = response_role
+        # self.response_role = response_role
         self.lora_modules = lora_modules
         self.chat_template = chat_template
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
@@ -70,7 +70,7 @@ class VLLMDeployment:
                 self.engine,
                 model_config,
                 served_model_names,
-                self.response_role,
+                # self.response_role,
                 self.lora_modules,
                 self.chat_template,
             )
@@ -89,21 +89,6 @@ class VLLMDeployment:
             return JSONResponse(content=generator.model_dump())
 
 
-def parse_vllm_args(cli_args: Dict[str, str]):
-    """Parses vLLM args based on CLI inputs.
-
-    Currently uses argparse because vLLM doesn't expose Python models for all of the
-    config options we want to support.
-    """
-    parser = make_arg_parser()
-    arg_strings = []
-    for key, value in cli_args.items():
-        arg_strings.extend([f"--{key}", str(value)])
-    logger.info(arg_strings)
-    parsed_args = parser.parse_args(args=arg_strings)
-    return parsed_args
-
-
 def build_app(model_name, tensor_parallel_size) -> serve.Application:
     """Builds the Serve app based on CLI arguments.
 
@@ -111,12 +96,7 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
     for the complete set of arguments.
 
     Supported engine arguments: https://docs.vllm.ai/en/latest/models/engine_args.html.
-    """  # noqa: E501
-    # parsed_args = parse_vllm_args(cli_args)
-    # engine_args = AsyncEngineArgs.from_cli_args(parsed_args)
-    # engine_args.worker_use_ray = True
-    # tp = engine_args.tensor_parallel_size
-
+    """  
     tp = tensor_parallel_size
     engine_args = AsyncEngineArgs(
         model=model_name,
