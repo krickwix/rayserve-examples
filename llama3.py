@@ -45,7 +45,7 @@ class VLLMDeployment:
         logger.info(f"Starting with engine args: {engine_args}")
         self.openai_serving_chat = None
         self.engine_args = engine_args
-        # self.response_role = response_role
+        self.response_role = None
         self.lora_modules = lora_modules
         self.chat_template = chat_template
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
@@ -70,7 +70,7 @@ class VLLMDeployment:
                 self.engine,
                 model_config,
                 served_model_names,
-                # self.response_role,
+                self.response_role,
                 self.lora_modules,
                 self.chat_template,
             )
