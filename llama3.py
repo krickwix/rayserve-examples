@@ -117,10 +117,9 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
     # engine_args.worker_use_ray = True
     # tp = engine_args.tensor_parallel_size
 
-    tp = tp_size
+    tp = tensor_parallel_size
     engine_args = AsyncEngineArgs(
         model=model_name,
-        model_type="text-conditional-generation",
         tensor_parallel_size=tensor_parallel_size,
         worker_use_ray=True,
     )
