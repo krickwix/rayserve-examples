@@ -132,7 +132,7 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
 
     # We use the "STRICT_PACK" strategy below to ensure all vLLM actors are placed on
     # the same Ray node.
-    return VLLMDeployment.options(
+    deployment = VLLMDeployment.options(
         placement_group_bundles=pg_resources, placement_group_strategy="STRICT_PACK"
     ).bind(
         engine_args,
