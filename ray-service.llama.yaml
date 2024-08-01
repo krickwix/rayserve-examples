@@ -71,9 +71,16 @@ spec:
                 cpu: 3
                 memory: "12G"
                 nvidia.com/gpu: 8
+            volumeMounts:
+              - name: datasets-volume
+                mountPath: /opt/data
           # Please add the following taints to the GPU node.
           tolerations:
             - key: "ray.io/node-type"
               operator: "Equal"
               value: "worker"
               effect: "NoSchedule"
+          volumes:
+            - name: datasets-volume
+              persistentVolumeClaim:
+                claimName: efs-pvc
