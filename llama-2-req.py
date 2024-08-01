@@ -8,7 +8,7 @@ response = openai.ChatCompletion.create(
     model="NousResearch/Llama-2-7b-chat-hf",
     messages=[
         {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "What is Congo Square's significance?"},
+        {"role": "user", "content": "What is Congo Square's significance and history ?"},
     ]
 )
 

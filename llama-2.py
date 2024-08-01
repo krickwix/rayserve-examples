@@ -24,7 +24,7 @@ logger = logging.getLogger("ray.serve")
 
 app = FastAPI()
 
-model_name = "NousResearch/Llama-2-7b-chat-hf"
+model_name = "NousResearch/Llama-2-70b-chat-hf"
 tp_size = 8
 
 @serve.deployment(
