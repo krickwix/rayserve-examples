@@ -64,8 +64,8 @@ spec:
             image: krickwix/ray-vllm:latest
             resources:
               limits:
-                cpu: 32
-                memory: "128G"
+                cpu: 64
+                memory: "256G"
                 nvidia.com/gpu: 8
               requests:
                 cpu: 3
