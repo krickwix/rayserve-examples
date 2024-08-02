@@ -24,7 +24,7 @@ logger = logging.getLogger("ray.serve")
 
 app = FastAPI()
 
-model_name = "/opt/data/models/Meta-Llama-3-8B-Instruct"
+model_name = "/opt/data/models/meta-llama/Meta-Llama-3.1-8B-Instruct"
 tp_size = 8
 
 @serve.deployment(
@@ -118,7 +118,7 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
     # We use the "STRICT_PACK" strategy below to ensure all vLLM actors are placed on
     # the same Ray node.
     return VLLMDeployment.options(
-        placement_group_bundles=pg_resources, placement_group_strategy="STRICT_PACK").bind(
+        placement_group_bundles=pg_resources, placement_group_strategy="PACK").bind(
             engine_args,
             # parsed_args.response_role,
             # parsed_args.lora_modules,

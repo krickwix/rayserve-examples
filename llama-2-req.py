@@ -5,7 +5,7 @@ openai.api_key = "EMPTY"  # Not needed since we're using a local server
 openai.api_base = "http://localhost:8000/v1"
 
 response = openai.ChatCompletion.create(
-    model="NousResearch/Llama-2-7b-chat-hf",
+    model="/opt/data/models/Meta-Llama-3-8B-Instruct",
     messages=[
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "What is Congo Square's significance and history ?"},
