@@ -40,10 +40,9 @@ class VLLMDeployment:
     def __init__(
         self,
         engine_args: AsyncEngineArgs,
-        # response_role: str,
+        response_role: str,
         lora_modules: Optional[List[LoRAModulePath]] = None,
         chat_template: Optional[str] = None,
-        response_role: str = "assistant"
     ):
         logger.info(f"Starting with engine args: {engine_args}")
         self.openai_serving_chat = None
@@ -120,7 +119,7 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
     return VLLMDeployment.options(
         placement_group_bundles=pg_resources, placement_group_strategy="PACK").bind(
             engine_args,
-            # parsed_args.response_role,
+            response_role="assistant",
             # parsed_args.lora_modules,
             # parsed_args.chat_template,
         )
