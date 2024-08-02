@@ -116,6 +116,7 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
 
     # We use the "STRICT_PACK" strategy below to ensure all vLLM actors are placed on
     # the same Ray node.
+    print("engine_args: ", engine_args)
     return VLLMDeployment.options(
         placement_group_bundles=pg_resources, placement_group_strategy="PACK").bind(
             engine_args,
