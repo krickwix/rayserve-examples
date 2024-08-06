@@ -53,7 +53,6 @@ spec:
                 value: http://prometheus-grafana.prometheus-system.svc:80
               - name: RAY_PROMETHEUS_HOST
                 value: http://prometheus-kube-prometheus-prometheus.prometheus-system.svc:9090
-
           volumes:
             - name: ray-logs
               emptyDir: {}
