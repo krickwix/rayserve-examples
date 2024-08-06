@@ -46,6 +46,14 @@ spec:
               requests:
                 cpu: "2"
                 memory: "8G"
+            env:
+              - name: RAY_GRAFANA_IFRAME_HOST
+                value: http://127.0.0.1:3000
+              - name: RAY_GRAFANA_HOST
+                value: http://prometheus-grafana.prometheus-system.svc:80
+              - name: RAY_PROMETHEUS_HOST
+                value: http://prometheus-kube-prometheus-prometheus.prometheus-system.svc:9090
+
           volumes:
             - name: ray-logs
               emptyDir: {}
@@ -65,7 +73,7 @@ spec:
             resources:
               limits:
                 cpu: 64
-                memory: "256G"
+                memory: "192G"
                 nvidia.com/gpu: 8
               requests:
                 cpu: 3
