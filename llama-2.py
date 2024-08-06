@@ -24,7 +24,7 @@ logger = logging.getLogger("ray.serve")
 
 app = FastAPI()
 
-model_name = "/opt/data/models/meta-llama/Meta-Llama-3.1-8B-Instruct"
+model_name = "/opt/data/models/meta-llama/Meta-Llama-3.1-70B-Instruct"
 tp_size = 8
 
 @serve.deployment(
