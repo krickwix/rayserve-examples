@@ -98,14 +98,32 @@ class VLLMDeployment:
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
 
     @app.post("/v1/chat/completions")
-    async def create_chat_completion(self, request: Request):
+    async def create_chat_completion(self, request: Request):        
         try:
             body = await request.json()
             logger.debug(f"Received chat completion request: {body}")
+            # Convert the request to vLLM's ChatCompletionRequest format
             vllm_request = ChatCompletionRequest(**body)
 
+
             if not self.openai_serving_chat:
-                # ... (keep the existing initialization code)
+                logger.info("Initializing OpenAIServingChat")
+                model_config = await self.engine.get_model_config()
+                # Determine the name of the served model for the OpenAI client.
+                if self.engine_args.served_model_name is not None:
+                    served_model_names = self.engine_args.served_model_name
+                else:
+                    served_model_names = [self.engine_args.model]
+                self.openai_serving_chat = OpenAIServingChat(
+                    self.engine,
+                    model_config,
+                    served_model_names,
+                    self.response_role,
+                    lora_modules=self.lora_modules,
+                    chat_template=self.chat_template,
+                    prompt_adapters=None,
+                    request_logger=None
+                )
 
             logger.debug(f"Calling create_chat_completion with request: {vllm_request}")
             generator = await self.openai_serving_chat.create_chat_completion(
@@ -142,6 +160,7 @@ class VLLMDeployment:
         except Exception as e:
             logger.error(f"Error processing request: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
+
 
     @app.get("/v1/models")
     async def list_models():
