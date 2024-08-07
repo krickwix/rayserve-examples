@@ -193,7 +193,6 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
     )
     logger.info(f"Tensor parallelism = {tp}")
     pg_resources = []
-    pg_resources.append({"CPU": 1})  # for the deployment replica
     for i in range(tp):
         pg_resources.append({"CPU": 1, "GPU": 1})  # for the vLLM actors
 
