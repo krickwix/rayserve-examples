@@ -31,7 +31,6 @@ logger = logging.getLogger("ray.serve")
 
 app = FastAPI()
 
-# model_name = "/opt/data/models/meta-llama/Meta-Llama-3.1-8B-Instruct"
 model_name = "NousResearch/Llama-2-7b-chat-hf"
 tp_size = 8
 
@@ -46,7 +45,6 @@ async def log_requests(request: Request, call_next):
     logger.debug(f"Response headers: {response.headers}")
     
     return response
-
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
@@ -100,36 +98,16 @@ class VLLMDeployment:
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
 
     @app.post("/v1/chat/completions")
-    async def create_chat_completion(
-        self, request: Request
-    ):
-        
+    async def create_chat_completion(self, request: Request):
         try:
             body = await request.json()
             logger.debug(f"Received chat completion request: {body}")
-            # Convert the request to vLLM's ChatCompletionRequest format
             vllm_request = ChatCompletionRequest(**body)
 
-
             if not self.openai_serving_chat:
-                logger.info("Initializing OpenAIServingChat")
-                model_config = await self.engine.get_model_config()
-                # Determine the name of the served model for the OpenAI client.
-                if self.engine_args.served_model_name is not None:
-                    served_model_names = self.engine_args.served_model_name
-                else:
-                    served_model_names = [self.engine_args.model]
-                self.openai_serving_chat = OpenAIServingChat(
-                    self.engine,
-                    model_config,
-                    served_model_names,
-                    self.response_role,
-                    lora_modules=self.lora_modules,
-                    chat_template=self.chat_template,
-                    prompt_adapters=None,
-                    request_logger=None
-                )
-            logger.debug(f"Calling create_chat_completion with request: {request}")
+                # ... (keep the existing initialization code)
+
+            logger.debug(f"Calling create_chat_completion with request: {vllm_request}")
             generator = await self.openai_serving_chat.create_chat_completion(
                 vllm_request, request
             )
@@ -137,10 +115,28 @@ class VLLMDeployment:
                 raise HTTPException(status_code=generator.code, detail=generator.message)
 
             if vllm_request.stream:
-                return StreamingResponse(content=generator, media_type="text/event-stream")
+                async def openai_stream_generator():
+                    async for chunk in generator:
+                        yield f"data: {json.dumps(chunk.model_dump())}\n\n"
+                    yield "data: [DONE]\n\n"
+                return StreamingResponse(openai_stream_generator(), media_type="text/event-stream")
             else:
                 response = await generator.__anext__()
-                return JSONResponse(content=response.model_dump())
+                return JSONResponse(content={
+                    "id": "chatcmpl-" + ''.join(random.choices(string.ascii_letters + string.digits, k=29)),
+                    "object": "chat.completion",
+                    "created": int(time.time()),
+                    "model": self.engine_args.model,
+                    "choices": [{
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": response.choices[0].message.content,
+                        },
+                        "finish_reason": response.choices[0].finish_reason,
+                    }],
+                    "usage": response.usage.model_dump() if response.usage else None,
+                })
         except json.JSONDecodeError:
             raise HTTPException(status_code=400, detail="Invalid JSON")
         except Exception as e:
