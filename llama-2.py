@@ -20,6 +20,7 @@ from vllm.entrypoints.openai.serving_engine import LoRAModulePath
 
 from transformers import AutoTokenizer
 import json
+from fastapi import HTTPException
 
 
 # Configure logging
@@ -46,7 +47,6 @@ async def log_requests(request: Request, call_next):
     
     return response
 
-from fastapi import HTTPException
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
@@ -63,6 +63,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
     },
     max_ongoing_requests=10,
 )
+
 @serve.ingress(app)
 class VLLMDeployment:
     def __init__(
@@ -100,7 +101,7 @@ class VLLMDeployment:
 
     @app.post("/v1/chat/completions")
     async def create_chat_completion(
-        self, request: ChatCompletionRequest, raw_request: Request
+        self, request: Request
     ):
         
         try:
@@ -158,6 +159,9 @@ class VLLMDeployment:
                 }
             ]
         })
+    @app.get("/health")
+    async def health_check(self):
+        return {"status": "ok"}
 
 
 def build_app(model_name, tensor_parallel_size) -> serve.Application:
