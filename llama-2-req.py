@@ -1,5 +1,5 @@
 import openai
-
+import json
 # Set OpenAI's API key and API base to use vLLM's API server.
 openai.api_key = "EMPTY"  # Not needed since we're using a local server
 openai.api_base = "http://localhost:8000/v1"
