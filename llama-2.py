@@ -119,7 +119,7 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
     # the same Ray node.
     print("engine_args: ", engine_args)
     return VLLMDeployment.options(
-        placement_group_bundles=pg_resources, placement_group_strategy="SRTICT_PACK").bind(
+        placement_group_bundles=pg_resources, placement_group_strategy="STRICT_PACK").bind(
             engine_args,
             response_role="assistant",
             # parsed_args.lora_modules,
