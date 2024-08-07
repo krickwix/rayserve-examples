@@ -46,6 +46,14 @@ async def log_requests(request: Request, call_next):
     
     return response
 
+from fastapi import HTTPException
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"error": {"message": str(exc), "type": "internal_server_error"}}
+    )
 
 @serve.deployment(
     autoscaling_config={
@@ -94,40 +102,63 @@ class VLLMDeployment:
     async def create_chat_completion(
         self, request: ChatCompletionRequest, raw_request: Request
     ):
-        logger.debug(f"Received chat completion request: {request}")
+        
+        try:
+            body = await request.json()
+            logger.debug(f"Received chat completion request: {body}")
+            # Convert the request to vLLM's ChatCompletionRequest format
+            vllm_request = ChatCompletionRequest(**body)
 
-        if not self.openai_serving_chat:
-            logger.info("Initializing OpenAIServingChat")
-            model_config = await self.engine.get_model_config()
-            # Determine the name of the served model for the OpenAI client.
-            if self.engine_args.served_model_name is not None:
-                served_model_names = self.engine_args.served_model_name
+
+            if not self.openai_serving_chat:
+                logger.info("Initializing OpenAIServingChat")
+                model_config = await self.engine.get_model_config()
+                # Determine the name of the served model for the OpenAI client.
+                if self.engine_args.served_model_name is not None:
+                    served_model_names = self.engine_args.served_model_name
+                else:
+                    served_model_names = [self.engine_args.model]
+                self.openai_serving_chat = OpenAIServingChat(
+                    self.engine,
+                    model_config,
+                    served_model_names,
+                    self.response_role,
+                    lora_modules=self.lora_modules,
+                    chat_template=self.chat_template,
+                    prompt_adapters=None,
+                    request_logger=None
+                )
+            logger.debug(f"Calling create_chat_completion with request: {request}")
+            generator = await self.openai_serving_chat.create_chat_completion(
+                vllm_request, request
+            )
+            if isinstance(generator, ErrorResponse):
+                raise HTTPException(status_code=generator.code, detail=generator.message)
+
+            if vllm_request.stream:
+                return StreamingResponse(content=generator, media_type="text/event-stream")
             else:
-                served_model_names = [self.engine_args.model]
-            self.openai_serving_chat = OpenAIServingChat(
-                self.engine,
-                model_config,
-                served_model_names,
-                self.response_role,
-                lora_modules=self.lora_modules,
-                chat_template=self.chat_template,
-                prompt_adapters=None,
-                request_logger=None
-            )
-        logger.debug(f"Calling create_chat_completion with request: {request}")
-        generator = await self.openai_serving_chat.create_chat_completion(
-            request, raw_request
-        )
-        logger.debug(f"Generated response type: {type(generator)}")
-        if isinstance(generator, ErrorResponse):
-            return JSONResponse(
-                content=generator.model_dump(), status_code=generator.code
-            )
-        if request.stream:
-            return StreamingResponse(content=generator, media_type="text/event-stream")
-        else:
-            assert isinstance(generator, ChatCompletionResponse)
-            return JSONResponse(content=generator.model_dump())
+                response = await generator.__anext__()
+                return JSONResponse(content=response.model_dump())
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON")
+        except Exception as e:
+            logger.error(f"Error processing request: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/v1/models")
+    async def list_models():
+        return JSONResponse(content={
+            "data": [
+                {
+                    "id": self.engine_args.model,
+                    "object": "model",
+                    "created": int(time.time()),
+                    "owned_by": "organization",
+                }
+            ]
+        })
+
 
 def build_app(model_name, tensor_parallel_size) -> serve.Application:
     """Builds the Serve app based on CLI arguments.
