@@ -22,6 +22,7 @@ from vllm.entrypoints.openai.serving_engine import LoRAModulePath
 logging.basicConfig(level=logging.DEBUG)
 logging.getLogger("ray.serve").setLevel(logging.DEBUG)
 logging.getLogger("vllm").setLevel(logging.DEBUG)
+logger = logging.getLogger("ray.serve")
 
 app = FastAPI()
 
