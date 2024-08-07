@@ -128,7 +128,7 @@ class VLLMDeployment:
             if vllm_request.stream:
                 async def openai_stream_generator():
                     async for chunk in generator_or_response:
-                        yield f"data: {json.dumps(chunk.model_dump())}\n\n"
+                        yield f"data: {chunk}\n\n"
                     yield "data: [DONE]\n\n"
                 return StreamingResponse(openai_stream_generator(), media_type="text/event-stream")
             else:
