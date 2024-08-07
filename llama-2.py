@@ -131,7 +131,7 @@ class VLLMDeployment:
                     async for chunk in generator_or_response:
                         yield f"data: {json.dumps(chunk)}\n\n"
                     yield "data: [DONE]\n\n"
-                    return StreamingResponse(openai_stream_generator(), media_type="text/event-stream")
+                return StreamingResponse(openai_stream_generator(), media_type="text/event-stream")
             else:
                 if isinstance(generator_or_response, ChatCompletionResponse):
                     response = generator_or_response
