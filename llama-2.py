@@ -20,12 +20,27 @@ from vllm.entrypoints.openai.serving_engine import LoRAModulePath
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger("ray.serve")
+logging.getLogger("ray.serve").setLevel(logging.DEBUG)
+logging.getLogger("vllm").setLevel(logging.DEBUG)
 
 app = FastAPI()
 
-model_name = "/opt/data/models/meta-llama/Meta-Llama-3.1-8B-Instruct"
+# model_name = "/opt/data/models/meta-llama/Meta-Llama-3.1-8B-Instruct"
+model_name = "NousResearch/Llama-2-7b-chat-hf"
 tp_size = 8
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.debug(f"Received request: {request.method} {request.url}")
+    logger.debug(f"Request headers: {request.headers}")
+    
+    response = await call_next(request)
+    
+    logger.debug(f"Response status: {response.status_code}")
+    logger.debug(f"Response headers: {response.headers}")
+    
+    return response
+
 
 @serve.deployment(
     autoscaling_config={
@@ -44,7 +59,9 @@ class VLLMDeployment:
         lora_modules: Optional[List[LoRAModulePath]] = None,
         chat_template: Optional[str] = None,
     ):
-        logger.info(f"Starting with engine args: {engine_args}")
+        logger.info(f"Initializing VLLMDeployment with model: {self.engine_args.model}")
+        logger.info(f"Tensor parallel size: {self.engine_args.tensor_parallel_size}")
+        logger.info(f"Data type: {self.engine_args.dtype}")
         self.openai_serving_chat = None
         self.engine_args = engine_args
         self.response_role = response_role
@@ -61,7 +78,11 @@ class VLLMDeployment:
         API reference:
             - https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html
         """
+
+        logger.debug(f"Received chat completion request: {request}")
+
         if not self.openai_serving_chat:
+            logger.info("Initializing OpenAIServingChat")
             model_config = await self.engine.get_model_config()
             # Determine the name of the served model for the OpenAI client.
             if self.engine_args.served_model_name is not None:
@@ -80,10 +101,12 @@ class VLLMDeployment:
                 # self.lora_modules,
                 # self.chat_template,
             )
-        logger.debug(f"Request: {request}")
+        logger.debug(f"Calling create_chat_completion with request: {request}")
         generator = await self.openai_serving_chat.create_chat_completion(
             request, raw_request
         )
+        logger.debug(f"Generated response type: {type(generator)}")
+
         if isinstance(generator, ErrorResponse):
             return JSONResponse(
                 content=generator.model_dump(), status_code=generator.code
