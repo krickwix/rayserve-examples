@@ -1,12 +1,10 @@
-from typing import Dict, Optional, List
-import logging
-import json
 import random
 import string
 import time
 
 from fastapi import FastAPI, Request, HTTPException
 from starlette.responses import StreamingResponse, JSONResponse
+
 from ray import serve
 
 from vllm.engine.arg_utils import AsyncEngineArgs
@@ -18,12 +16,6 @@ from vllm.entrypoints.openai.protocol import (
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_engine import LoRAModulePath
 from transformers import AutoTokenizer
-
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
-logging.getLogger("ray.serve").setLevel(logging.DEBUG)
-logging.getLogger("vllm").setLevel(logging.DEBUG)
-logger = logging.getLogger("ray.serve")
 
 app = FastAPI()
 
@@ -150,6 +142,15 @@ class VLLMDeployment:
                 })
         except json.JSONDecodeError:
             raise HTTPException(status_code=400, detail="Invalid JSON")
+        except StopIteration:
+            return JSONResponse(content={
+                "id": "chatcmpl-" + ''.join(random.choices(string.ascii_letters + string.digits, k=29)),
+                "object": "chat.completion",
+                "created": int(time.time()),
+                "model": self.engine_args.model,
+                "choices": [],
+                "usage": None,
+            })
         except Exception as e:
             logger.error(f"Error processing request: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))

@@ -21,7 +21,7 @@ for question in questions:
     
     # Get model's response
     response = openai.ChatCompletion.create(
-        model="/opt/data/models/meta-llama/Meta-Llama-3.1-8B-Instruct",
+        model="NousResearch/Llama-2-7b-chat-hf",
         messages=conversation
     )
     
