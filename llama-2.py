@@ -75,12 +75,6 @@ class VLLMDeployment:
     async def create_chat_completion(
         self, request: ChatCompletionRequest, raw_request: Request
     ):
-        """OpenAI-compatible HTTP endpoint.
-
-        API reference:
-            - https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html
-        """
-
         logger.debug(f"Received chat completion request: {request}")
 
         if not self.openai_serving_chat:
@@ -96,19 +90,16 @@ class VLLMDeployment:
                 model_config,
                 served_model_names,
                 self.response_role,
-                # lora_modules=None,
-                # chat_template=None,
-                # prompt_adapters=None,
-                # request_logger=None,
-                # self.lora_modules,
-                # self.chat_template,
+                lora_modules=self.lora_modules,
+                chat_template=self.chat_template,
+                prompt_adapters=None,
+                request_logger=None
             )
         logger.debug(f"Calling create_chat_completion with request: {request}")
         generator = await self.openai_serving_chat.create_chat_completion(
             request, raw_request
         )
         logger.debug(f"Generated response type: {type(generator)}")
-
         if isinstance(generator, ErrorResponse):
             return JSONResponse(
                 content=generator.model_dump(), status_code=generator.code
@@ -147,8 +138,8 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
         placement_group_bundles=pg_resources, placement_group_strategy="STRICT_PACK").bind(
             engine_args,
             response_role="assistant",
-            # parsed_args.lora_modules,
-            # parsed_args.chat_template,
+            lora_modules=None,
+            chat_template=None,
         )
 
 deployment = build_app(model_name=model_name, tensor_parallel_size=tp_size)
