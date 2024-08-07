@@ -14,6 +14,7 @@ from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.entrypoints.openai.protocol import (
     ChatCompletionRequest,
     ErrorResponse,
+    ChatCompletionResponse,  # Ensure this is imported
 )
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_engine import LoRAModulePath
@@ -118,20 +119,23 @@ class VLLMDeployment:
                 )
 
             logger.debug(f"Calling create_chat_completion with request: {vllm_request}")
-            generator = await self.openai_serving_chat.create_chat_completion(
+            generator_or_response = await self.openai_serving_chat.create_chat_completion(
                 vllm_request, request
             )
-            if isinstance(generator, ErrorResponse):
-                raise HTTPException(status_code=generator.code, detail=generator.message)
+            if isinstance(generator_or_response, ErrorResponse):
+                raise HTTPException(status_code=generator_or_response.code, detail=generator_or_response.message)
 
             if vllm_request.stream:
                 async def openai_stream_generator():
-                    async for chunk in generator:
+                    async for chunk in generator_or_response:
                         yield f"data: {json.dumps(chunk.model_dump())}\n\n"
                     yield "data: [DONE]\n\n"
                 return StreamingResponse(openai_stream_generator(), media_type="text/event-stream")
             else:
-                response = await generator.__anext__()
+                if isinstance(generator_or_response, ChatCompletionResponse):
+                    response = generator_or_response
+                else:
+                    response = await generator_or_response.__anext__()
                 return JSONResponse(content={
                     "id": "chatcmpl-" + ''.join(random.choices(string.ascii_letters + string.digits, k=29)),
                     "object": "chat.completion",
