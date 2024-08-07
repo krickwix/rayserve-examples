@@ -18,6 +18,10 @@ from vllm.entrypoints.openai.protocol import (
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_engine import LoRAModulePath
 
+from transformers import AutoTokenizer
+import json
+
+
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logging.getLogger("ray.serve").setLevel(logging.DEBUG)
@@ -58,13 +62,19 @@ class VLLMDeployment:
         engine_args: AsyncEngineArgs,
         response_role: str,
         lora_modules: Optional[List[LoRAModulePath]] = None,
-        chat_template: Optional[str] = None,
     ):
         self.openai_serving_chat = None
         self.engine_args = engine_args
         self.response_role = response_role
         self.lora_modules = lora_modules
-        self.chat_template = chat_template
+        tokenizer = AutoTokenizer.from_pretrained(self.engine_args.model)
+        # Extract the chat template
+        if hasattr(tokenizer, 'chat_template'):
+            self.chat_template = json.loads(tokenizer.chat_template)
+        else:
+            logger.warning("No chat template found in the model. Using default.")
+            self.chat_template = None
+
         logger.info(f"Initializing VLLMDeployment with model: {self.engine_args.model}")
         logger.info(f"Tensor parallel size: {self.engine_args.tensor_parallel_size}")
         logger.info(f"Data type: {self.engine_args.dtype}")
@@ -139,7 +149,6 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
             engine_args,
             response_role="assistant",
             lora_modules=None,
-            chat_template=None,
         )
 
 deployment = build_app(model_name=model_name, tensor_parallel_size=tp_size)
