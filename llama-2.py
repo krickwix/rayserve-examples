@@ -113,7 +113,7 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
     pg_resources = []
     pg_resources.append({"CPU": 1})  # for the deployment replica
     for i in range(tp):
-        pg_resources.append({"CPU": 1, "GPU": 1})  # for the vLLM actors
+        pg_resources.append({"CPU": 1, "GPU": 8})  # for the vLLM actors
 
     # We use the "STRICT_PACK" strategy below to ensure all vLLM actors are placed on
     # the same Ray node.
