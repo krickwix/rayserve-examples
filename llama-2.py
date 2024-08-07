@@ -68,12 +68,21 @@ class VLLMDeployment:
         self.response_role = response_role
         self.lora_modules = lora_modules
         tokenizer = AutoTokenizer.from_pretrained(self.engine_args.model)
-        # Extract the chat template
-        if hasattr(tokenizer, 'chat_template'):
-            self.chat_template = json.loads(tokenizer.chat_template)
-        else:
-            logger.warning("No chat template found in the model. Using default.")
-            self.chat_template = None
+        self.chat_template = None
+        if hasattr(tokenizer, 'chat_template') and tokenizer.chat_template is not None:
+            try:
+                if isinstance(tokenizer.chat_template, str):
+                    self.chat_template = json.loads(tokenizer.chat_template)
+                elif isinstance(tokenizer.chat_template, dict):
+                    self.chat_template = tokenizer.chat_template
+                else:
+                    logger.warning(f"Unexpected chat_template type: {type(tokenizer.chat_template)}")
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse chat template as JSON. Using default.")
+        
+        if self.chat_template is None:
+            logger.warning("No valid chat template found in the model. Using default.")
+
 
         logger.info(f"Initializing VLLMDeployment with model: {self.engine_args.model}")
         logger.info(f"Tensor parallel size: {self.engine_args.tensor_parallel_size}")
