@@ -60,14 +60,15 @@ class VLLMDeployment:
         lora_modules: Optional[List[LoRAModulePath]] = None,
         chat_template: Optional[str] = None,
     ):
-        logger.info(f"Initializing VLLMDeployment with model: {self.engine_args.model}")
-        logger.info(f"Tensor parallel size: {self.engine_args.tensor_parallel_size}")
-        logger.info(f"Data type: {self.engine_args.dtype}")
         self.openai_serving_chat = None
         self.engine_args = engine_args
         self.response_role = response_role
         self.lora_modules = lora_modules
         self.chat_template = chat_template
+        logger.info(f"Initializing VLLMDeployment with model: {self.engine_args.model}")
+        logger.info(f"Tensor parallel size: {self.engine_args.tensor_parallel_size}")
+        logger.info(f"Data type: {self.engine_args.dtype}")
+
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
 
     @app.post("/v1/chat/completions")
