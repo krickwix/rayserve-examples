@@ -24,6 +24,7 @@ import logging
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("ray.serve")
+logger.setLevel(logging.DEBUG)
 
 app = FastAPI()
 
