@@ -68,6 +68,7 @@ class VLLMDeployment:
         response_role: str,
         lora_modules: Optional[List[LoRAModulePath]] = None,
     ):
+        import huggingface_hub
         self.openai_serving_chat = None
         self.engine_args = engine_args
         self.response_role = response_role
@@ -75,7 +76,7 @@ class VLLMDeployment:
         self.hf_token = os.environ.get("HUGGING_FACE_TOKEN")
         if not self.hf_token:
             raise ValueError("HUGGING_FACE_TOKEN environment variable is not set")
-
+        huggingface_hub.login(token=self.hf_token)
         tokenizer = AutoTokenizer.from_pretrained(self.engine_args.model, use_auth_token=self.hf_token)
         self.chat_template = None
         if hasattr(tokenizer, 'chat_template') and tokenizer.chat_template is not None:
@@ -96,7 +97,7 @@ class VLLMDeployment:
         logger.info(f"Tensor parallel size: {self.engine_args.tensor_parallel_size}")
         logger.info(f"Data type: {self.engine_args.dtype}")
 
-        self.engine = AsyncLLMEngine.from_engine_args(engine_args, use_auth_token=self.hf_token)
+        self.engine = AsyncLLMEngine.from_engine_args(engine_args)
 
     @app.post("/v1/chat/completions")
     async def create_chat_completion(self, request: Request):        
