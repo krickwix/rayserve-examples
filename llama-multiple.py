@@ -222,7 +222,7 @@ def build_app(model_configs: Dict[str, Dict]) -> serve.Application:
             pg_resources.append({"CPU": 1, "GPU": 1})  # for the vLLM actors
 
     return MultiModelVLLMDeployment.options(
-        placement_group_bundles=pg_resources, placement_group_strategy="STRICT_PACK"
+        placement_group_bundles=pg_resources, placement_group_strategy="PACK"
     ).bind(
         model_configs=model_configs,
         response_role="assistant",
