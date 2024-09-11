@@ -89,6 +89,7 @@ class MultiModelVLLMDeployment:
                 tensor_parallel_size=config['tp_size'],
                 worker_use_ray=True,
             )
+            logger.info(f"Initializing engine for {model_id} with model: {config['name']}")
             self.engines[model_id] = AsyncLLMEngine.from_engine_args(engine_args)
 
             tokenizer = AutoTokenizer.from_pretrained(config['name'])
