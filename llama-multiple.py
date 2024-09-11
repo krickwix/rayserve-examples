@@ -20,7 +20,7 @@ from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_engine import LoRAModulePath
 from transformers import AutoTokenizer
 import logging
-
+import os
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("ray.serve")
