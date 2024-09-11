@@ -32,7 +32,7 @@ app = FastAPI()
 models = {
     "model1": {
         "name": "NousResearch/Meta-Llama-3.1-8B-Instruct",
-        "tp_size": 8
+        "tp_size": 4
     },
     "model2": {
         "name": "NousResearch/Llama-2-7b-chat-hf",
