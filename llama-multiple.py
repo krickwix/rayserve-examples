@@ -31,11 +31,11 @@ app = FastAPI()
 # Define multiple models
 models = {
     "model1": {
-        "name": "NousResearch/Meta-Llama-3.1-8B-Instruct",
+        "name": "meta-llama/Meta-Llama-3.1-8B-Instruct",
         "tp_size": 4
     },
     "model2": {
-        "name": "NousResearch/Llama-2-7b-chat-hf",
+        "name": "meta-llama/Llama-2-7b-chat-hf",
         "tp_size": 4
     }
 }
@@ -76,6 +76,7 @@ class MultiModelVLLMDeployment:
         response_role: str,
         lora_modules: Optional[List[LoRAModulePath]] = None,
     ):
+        import huggingface_hub
         self.model_configs = model_configs
         self.response_role = response_role
         self.lora_modules = lora_modules
@@ -89,6 +90,11 @@ class MultiModelVLLMDeployment:
                 tensor_parallel_size=config['tp_size'],
                 worker_use_ray=True,
             )
+            self.hf_token = os.environ.get("HUGGING_FACE_TOKEN")
+            if not self.hf_token:
+                raise ValueError("HUGGING_FACE_TOKEN environment variable is not set")
+            huggingface_hub.login(token=self.hf_token)
+
             logger.info(f"Initializing engine for {model_id} with model: {config['name']}")
             self.engines[model_id] = AsyncLLMEngine.from_engine_args(engine_args)
 
