@@ -28,7 +28,7 @@ logger.setLevel(logging.DEBUG)
 
 app = FastAPI()
 
-model_name = "NousResearch/Meta-Llama-3.1-8B-Instruct"
+model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 tp_size = 4
 
 @app.middleware("http")
