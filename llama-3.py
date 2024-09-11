@@ -29,7 +29,7 @@ logger.setLevel(logging.DEBUG)
 app = FastAPI()
 
 model_name = "NousResearch/Meta-Llama-3.1-8B-Instruct"
-tp_size = 8
+tp_size = 4
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -71,6 +71,12 @@ class VLLMDeployment:
         self.engine_args = engine_args
         self.response_role = response_role
         self.lora_modules = lora_modules
+        import huggingface_hub
+        import os
+        self.hf_token = os.environ.get("HUGGING_FACE_TOKEN")
+        if not self.hf_token:
+            raise ValueError("HUGGING_FACE_TOKEN environment variable is not set")
+        huggingface_hub.login(token=self.hf_token)
 
         tokenizer = AutoTokenizer.from_pretrained(self.engine_args.model)
         self.chat_template = None
