@@ -34,10 +34,10 @@ models = {
         "name": "meta-llama/Meta-Llama-3.1-8B-Instruct",
         "tp_size": 4
     },
-    # "model2": {
-    #     "name": "meta-llama/Llama-2-7b-chat-hf",
-    #     "tp_size": 4
-    # }
+    "model2": {
+        "name": "meta-llama/Llama-2-7b-chat-hf",
+        "tp_size": 4
+    }
 }
 
 @app.middleware("http")
