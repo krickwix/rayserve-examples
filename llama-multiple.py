@@ -219,7 +219,7 @@ def build_app(model_configs: Dict[str, Dict]) -> serve.Application:
     for config in model_configs.values():
         tp = config['tp_size']
         for _ in range(tp):
-            pg_resources[].append({"CPU": 1, "GPU": 1})  # for the vLLM actors
+            pg_resources.append({"CPU": 1, "GPU": 1})  # for the vLLM actors
     print(pg_resources)
     return MultiModelVLLMDeployment.options(
         placement_group_bundles=pg_resources, placement_group_strategy="PACK"
