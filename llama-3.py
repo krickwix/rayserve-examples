@@ -195,7 +195,7 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
     engine_args = AsyncEngineArgs(
         model=model_name,
         tensor_parallel_size=tensor_parallel_size,
-        pipeline_parallel_size=tensor_parallel_size,
+        pipeline_parallel_size=2,
         worker_use_ray=True,
     )
     logger.info(f"Tensor parallelism = {tp}")
