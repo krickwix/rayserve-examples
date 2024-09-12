@@ -29,7 +29,7 @@ logger.setLevel(logging.DEBUG)
 app = FastAPI()
 
 model_name = "NousResearch/Llama-2-7b-chat-hf"
-tp_size = 8
+tp_size = 4
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
