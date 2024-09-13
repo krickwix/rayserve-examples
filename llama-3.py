@@ -145,7 +145,7 @@ class VLLMDeployment:
             if vllm_request.stream:
                 async def openai_stream_generator():
                     async for chunk in generator_or_response:
-                        yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
+                        yield f"data: {json.dumps(chunk)}\n\n"
                     yield "data: [DONE]\n\n"
                 return StreamingResponse(openai_stream_generator(), media_type="text/event-stream")
             else:
@@ -167,20 +167,9 @@ class VLLMDeployment:
                         "finish_reason": response.choices[0].finish_reason,
                     }],
                     "usage": response.usage.model_dump() if response.usage else None,
-                }, ensure_ascii=False)
+                })
         except json.JSONDecodeError:
             raise HTTPException(status_code=400, detail="Invalid JSON")
-        except UnicodeDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid UTF-8 encoding in request")
-        except StopIteration:
-            return JSONResponse(content={
-                "id": "chatcmpl-" + ''.join(random.choices(string.ascii_letters + string.digits, k=29)),
-                "object": "chat.completion",
-                "created": int(time.time()),
-                "model": self.engine_args.model,
-                "choices": [],
-                "usage": None,
-            })
         except Exception as e:
             logger.error(f"Error processing request: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
