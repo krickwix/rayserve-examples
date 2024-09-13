@@ -2,10 +2,12 @@ import random
 import string
 import time
 import json
+import os
 from typing import List, Optional
 
 from fastapi import FastAPI, Request, HTTPException
 from starlette.responses import StreamingResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from ray import serve
 
@@ -14,11 +16,12 @@ from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.entrypoints.openai.protocol import (
     ChatCompletionRequest,
     ErrorResponse,
-    ChatCompletionResponse,  # Ensure this is imported
+    ChatCompletionResponse,
 )
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_engine import LoRAModulePath
 from transformers import AutoTokenizer
+import huggingface_hub
 import logging
 
 # Configure logging
@@ -27,6 +30,15 @@ logger = logging.getLogger("ray.serve")
 logger.setLevel(logging.DEBUG)
 
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 tp_size = 4
@@ -71,8 +83,6 @@ class VLLMDeployment:
         self.engine_args = engine_args
         self.response_role = response_role
         self.lora_modules = lora_modules
-        import huggingface_hub
-        import os
         self.hf_token = os.environ.get("HUGGING_FACE_TOKEN")
         if not self.hf_token:
             raise ValueError("HUGGING_FACE_TOKEN environment variable is not set")
@@ -135,7 +145,7 @@ class VLLMDeployment:
             if vllm_request.stream:
                 async def openai_stream_generator():
                     async for chunk in generator_or_response:
-                        yield f"data: {json.dumps(chunk)}\n\n"
+                        yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
                     yield "data: [DONE]\n\n"
                 return StreamingResponse(openai_stream_generator(), media_type="text/event-stream")
             else:
@@ -157,9 +167,11 @@ class VLLMDeployment:
                         "finish_reason": response.choices[0].finish_reason,
                     }],
                     "usage": response.usage.model_dump() if response.usage else None,
-                })
+                }, ensure_ascii=False)
         except json.JSONDecodeError:
             raise HTTPException(status_code=400, detail="Invalid JSON")
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid UTF-8 encoding in request")
         except StopIteration:
             return JSONResponse(content={
                 "id": "chatcmpl-" + ''.join(random.choices(string.ascii_letters + string.digits, k=29)),
