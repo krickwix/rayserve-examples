@@ -104,7 +104,9 @@ class VLLMDeployment:
             if not self.openai_serving_chat:
                 logger.info("Initializing OpenAIServingChat")
                 model_config = await self.engine.get_model_config()
-                if self.engine_args.served_model_name is not None:
+                if isinstance(self.engine_args.served_model_name, str):
+                    served_model_names = [self.engine_args.served_model_name]
+                elif isinstance(self.engine_args.served_model_name, list):
                     served_model_names = self.engine_args.served_model_name
                 else:
                     served_model_names = [self.engine_args.model]
@@ -118,7 +120,7 @@ class VLLMDeployment:
                     prompt_adapters=None,
                     request_logger=None
                 )
-
+            
             logger.debug(f"Calling create_chat_completion with request: {vllm_request}")
             generator_or_response = await self.openai_serving_chat.create_chat_completion(
                 vllm_request, request
@@ -129,8 +131,9 @@ class VLLMDeployment:
             if vllm_request.stream:
                 async def openai_stream_generator():
                     async for chunk in generator_or_response:
-                        yield f"data: {json.dumps(chunk)}\n\n"
+                        yield f"data: {json.dumps(chunk.model_dump())}\n\n"
                     yield "data: [DONE]\n\n"
+
                 return StreamingResponse(openai_stream_generator(), media_type="text/event-stream")
             else:
                 if isinstance(generator_or_response, ChatCompletionResponse):
@@ -154,7 +157,7 @@ class VLLMDeployment:
                 })
         except json.JSONDecodeError:
             raise HTTPException(status_code=400, detail="Invalid JSON")
-        except StopIteration:
+        except StopAsyncIteration:
             return JSONResponse(content={
                 "id": "chatcmpl-" + ''.join(random.choices(string.ascii_letters + string.digits, k=29)),
                 "object": "chat.completion",
