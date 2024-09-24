@@ -29,7 +29,7 @@ logger.setLevel(logging.DEBUG)
 app = FastAPI()
 
 model_name = "NousResearch/Llama-2-7b-chat-hf"
-tp_size = 4
+tp_size = 8
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -190,6 +190,7 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
         model=model_name,
         tensor_parallel_size=tensor_parallel_size,
         worker_use_ray=True,
+        dtype="bfloat16",
     )
     logger.info(f"Tensor parallelism = {tp}")
     pg_resources = []
