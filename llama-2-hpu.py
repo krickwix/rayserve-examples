@@ -1,25 +1,25 @@
-import random
-import string
-import time
-import json
-from typing import List, Optional
+from typing import Dict, Optional, List
+import logging
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI
+from starlette.requests import Request
 from starlette.responses import StreamingResponse, JSONResponse
 
 from ray import serve
 
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
+from vllm.entrypoints.openai.cli_args import make_arg_parser
 from vllm.entrypoints.openai.protocol import (
     ChatCompletionRequest,
+    ChatCompletionResponse,
     ErrorResponse,
-    ChatCompletionResponse,  # Ensure this is imported
 )
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
-from vllm.entrypoints.openai.serving_engine import LoRAModulePath
-from transformers import AutoTokenizer
-import logging
+from vllm.entrypoints.openai.serving_engine import LoRAModulePath, PromptAdapterPath
+from vllm.utils import FlexibleArgumentParser
+from vllm.entrypoints.logger import RequestLogger
+
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -61,37 +61,56 @@ async def generic_exception_handler(request: Request, exc: Exception):
 )
 @serve.ingress(app)
 class VLLMDeployment:
+    # def __init__(
+    #     self,
+    #     engine_args: AsyncEngineArgs,
+    #     response_role: str,
+    #     lora_modules: Optional[List[LoRAModulePath]] = None,
+    # ):
+    #     self.openai_serving_chat = None
+    #     self.engine_args = engine_args
+    #     self.response_role = response_role
+    #     self.lora_modules = lora_modules
+
+    #     tokenizer = AutoTokenizer.from_pretrained(self.engine_args.model)
+    #     self.chat_template = None
+    #     if hasattr(tokenizer, 'chat_template') and tokenizer.chat_template is not None:
+    #         try:
+    #             if isinstance(tokenizer.chat_template, str):
+    #                 self.chat_template = json.loads(tokenizer.chat_template)
+    #             elif isinstance(tokenizer.chat_template, dict):
+    #                 self.chat_template = tokenizer.chat_template
+    #             else:
+    #                 logger.warning(f"Unexpected chat_template type: {type(tokenizer.chat_template)}")
+    #         except json.JSONDecodeError:
+    #             logger.warning("Failed to parse chat template as JSON. Using default.")
+        
+    #     if self.chat_template is None:
+    #         logger.warning("No valid chat template found in the model. Using default.")
+
+    #     logger.info(f"Initializing VLLMDeployment with model: {self.engine_args.model}")
+    #     logger.info(f"Tensor parallel size: {self.engine_args.tensor_parallel_size}")
+    #     logger.info(f"Data type: {self.engine_args.dtype}")
+
+    #     self.engine = AsyncLLMEngine.from_engine_args(engine_args)
+
     def __init__(
         self,
         engine_args: AsyncEngineArgs,
         response_role: str,
         lora_modules: Optional[List[LoRAModulePath]] = None,
+        prompt_adapters: Optional[List[PromptAdapterPath]] = None,
+        request_logger: Optional[RequestLogger] = None,
+        chat_template: Optional[str] = None,
     ):
+        logger.info(f"Starting with engine args: {engine_args}")
         self.openai_serving_chat = None
         self.engine_args = engine_args
         self.response_role = response_role
         self.lora_modules = lora_modules
-
-        tokenizer = AutoTokenizer.from_pretrained(self.engine_args.model)
-        self.chat_template = None
-        if hasattr(tokenizer, 'chat_template') and tokenizer.chat_template is not None:
-            try:
-                if isinstance(tokenizer.chat_template, str):
-                    self.chat_template = json.loads(tokenizer.chat_template)
-                elif isinstance(tokenizer.chat_template, dict):
-                    self.chat_template = tokenizer.chat_template
-                else:
-                    logger.warning(f"Unexpected chat_template type: {type(tokenizer.chat_template)}")
-            except json.JSONDecodeError:
-                logger.warning("Failed to parse chat template as JSON. Using default.")
-        
-        if self.chat_template is None:
-            logger.warning("No valid chat template found in the model. Using default.")
-
-        logger.info(f"Initializing VLLMDeployment with model: {self.engine_args.model}")
-        logger.info(f"Tensor parallel size: {self.engine_args.tensor_parallel_size}")
-        logger.info(f"Data type: {self.engine_args.dtype}")
-
+        self.prompt_adapters = prompt_adapters
+        self.request_logger = request_logger
+        self.chat_template = chat_template
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
 
     # @app.post("/v1/chat/completions")
