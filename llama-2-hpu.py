@@ -94,81 +94,122 @@ class VLLMDeployment:
 
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
 
-    @app.post("/v1/chat/completions")
-    async def create_chat_completion(self, request: Request):        
-        try:
-            body = await request.json()
-            logger.debug(f"Received chat completion request: {body}")
-            vllm_request = ChatCompletionRequest(**body)
+    # @app.post("/v1/chat/completions")
+    # async def create_chat_completion(self, request: Request):        
+    #     try:
+    #         body = await request.json()
+    #         logger.debug(f"Received chat completion request: {body}")
+    #         vllm_request = ChatCompletionRequest(**body)
 
-            if not self.openai_serving_chat:
-                logger.info("Initializing OpenAIServingChat")
-                model_config = await self.engine.get_model_config()
-                if isinstance(self.engine_args.served_model_name, str):
-                    served_model_names = [self.engine_args.served_model_name]
-                elif isinstance(self.engine_args.served_model_name, list):
-                    served_model_names = self.engine_args.served_model_name
-                else:
-                    served_model_names = [self.engine_args.model]
-                self.openai_serving_chat = OpenAIServingChat(
-                    self.engine,
-                    model_config,
-                    served_model_names,
-                    self.response_role,
-                    lora_modules=self.lora_modules,
-                    chat_template=self.chat_template,
-                    prompt_adapters=None,
-                    request_logger=None
-                )
+    #         if not self.openai_serving_chat:
+    #             logger.info("Initializing OpenAIServingChat")
+    #             model_config = await self.engine.get_model_config()
+    #             if isinstance(self.engine_args.served_model_name, str):
+    #                 served_model_names = [self.engine_args.served_model_name]
+    #             elif isinstance(self.engine_args.served_model_name, list):
+    #                 served_model_names = self.engine_args.served_model_name
+    #             else:
+    #                 served_model_names = [self.engine_args.model]
+    #             self.openai_serving_chat = OpenAIServingChat(
+    #                 self.engine,
+    #                 model_config,
+    #                 served_model_names,
+    #                 self.response_role,
+    #                 lora_modules=self.lora_modules,
+    #                 chat_template=self.chat_template,
+    #                 prompt_adapters=None,
+    #                 request_logger=None
+    #             )
             
-            logger.debug(f"Calling create_chat_completion with request: {vllm_request}")
-            generator_or_response = await self.openai_serving_chat.create_chat_completion(
-                vllm_request, request
-            )
-            if isinstance(generator_or_response, ErrorResponse):
-                raise HTTPException(status_code=generator_or_response.code, detail=generator_or_response.message)
+    #         logger.debug(f"Calling create_chat_completion with request: {vllm_request}")
+    #         generator_or_response = await self.openai_serving_chat.create_chat_completion(
+    #             vllm_request, request
+    #         )
+    #         if isinstance(generator_or_response, ErrorResponse):
+    #             raise HTTPException(status_code=generator_or_response.code, detail=generator_or_response.message)
 
-            if vllm_request.stream:
-                async def openai_stream_generator():
-                    async for chunk in generator_or_response:
-                        yield f"data: {json.dumps(chunk.model_dump())}\n\n"
-                    yield "data: [DONE]\n\n"
+    #         if vllm_request.stream:
+    #             async def openai_stream_generator():
+    #                 async for chunk in generator_or_response:
+    #                     yield f"data: {json.dumps(chunk.model_dump())}\n\n"
+    #                 yield "data: [DONE]\n\n"
 
-                return StreamingResponse(openai_stream_generator(), media_type="text/event-stream")
+    #             return StreamingResponse(openai_stream_generator(), media_type="text/event-stream")
+    #         else:
+    #             if isinstance(generator_or_response, ChatCompletionResponse):
+    #                 response = generator_or_response
+    #             else:
+    #                 response = await generator_or_response.__anext__()
+    #             return JSONResponse(content={
+    #                 "id": "chatcmpl-" + ''.join(random.choices(string.ascii_letters + string.digits, k=29)),
+    #                 "object": "chat.completion",
+    #                 "created": int(time.time()),
+    #                 "model": self.engine_args.model,
+    #                 "choices": [{
+    #                     "index": 0,
+    #                     "message": {
+    #                         "role": "assistant",
+    #                         "content": response.choices[0].message.content,
+    #                     },
+    #                     "finish_reason": response.choices[0].finish_reason,
+    #                 }],
+    #                 "usage": response.usage.model_dump() if response.usage else None,
+    #             })
+    #     except json.JSONDecodeError:
+    #         raise HTTPException(status_code=400, detail="Invalid JSON")
+    #     except StopAsyncIteration:
+    #         return JSONResponse(content={
+    #             "id": "chatcmpl-" + ''.join(random.choices(string.ascii_letters + string.digits, k=29)),
+    #             "object": "chat.completion",
+    #             "created": int(time.time()),
+    #             "model": self.engine_args.model,
+    #             "choices": [],
+    #             "usage": None,
+    #         })
+    #     except Exception as e:
+    #         logger.error(f"Error processing request: {str(e)}")
+    #         raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/v1/chat/completions")
+    async def create_chat_completion(
+        self, request: ChatCompletionRequest, raw_request: Request
+    ):
+        """OpenAI-compatible HTTP endpoint.
+
+        API reference:
+            - https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html
+        """
+        if not self.openai_serving_chat:
+            model_config = await self.engine.get_model_config()
+            # Determine the name of the served model for the OpenAI client.
+            if self.engine_args.served_model_name is not None:
+                served_model_names = self.engine_args.served_model_name
             else:
-                if isinstance(generator_or_response, ChatCompletionResponse):
-                    response = generator_or_response
-                else:
-                    response = await generator_or_response.__anext__()
-                return JSONResponse(content={
-                    "id": "chatcmpl-" + ''.join(random.choices(string.ascii_letters + string.digits, k=29)),
-                    "object": "chat.completion",
-                    "created": int(time.time()),
-                    "model": self.engine_args.model,
-                    "choices": [{
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": response.choices[0].message.content,
-                        },
-                        "finish_reason": response.choices[0].finish_reason,
-                    }],
-                    "usage": response.usage.model_dump() if response.usage else None,
-                })
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid JSON")
-        except StopAsyncIteration:
-            return JSONResponse(content={
-                "id": "chatcmpl-" + ''.join(random.choices(string.ascii_letters + string.digits, k=29)),
-                "object": "chat.completion",
-                "created": int(time.time()),
-                "model": self.engine_args.model,
-                "choices": [],
-                "usage": None,
-            })
-        except Exception as e:
-            logger.error(f"Error processing request: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+                served_model_names = [self.engine_args.model]
+            self.openai_serving_chat = OpenAIServingChat(
+                self.engine,
+                model_config,
+                served_model_names,
+                self.response_role,
+                lora_modules=self.lora_modules,
+                prompt_adapters=self.prompt_adapters,
+                request_logger=self.request_logger,
+                chat_template=self.chat_template,
+            )
+        logger.info(f"Request: {request}")
+        generator = await self.openai_serving_chat.create_chat_completion(
+            request, raw_request
+        )
+        if isinstance(generator, ErrorResponse):
+            return JSONResponse(
+                content=generator.model_dump(), status_code=generator.code
+            )
+        if request.stream:
+            return StreamingResponse(content=generator, media_type="text/event-stream")
+        else:
+            assert isinstance(generator, ChatCompletionResponse)
+            return JSONResponse(content=generator.model_dump())
+
 
     @app.get("/v1/models")
     async def list_models(self):
