@@ -116,8 +116,6 @@ class VLLMDeployment:
         logger.info(f"Tensor parallel size: {self.engine_args.tensor_parallel_size}")
         logger.info(f"Data type: {self.engine_args.dtype}")
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
-        conf = await self.engine.get_model_config()
-        logger.info(f"Model config: {conf}")
 
     # @app.post("/v1/chat/completions")
     # async def create_chat_completion(self, request: Request):        
@@ -206,11 +204,13 @@ class VLLMDeployment:
         """
         if not self.openai_serving_chat:
             model_config = await self.engine.get_model_config()
+            logger.info(f"Initializing OpenAIServingChat with model config: {model_config}")
             # Determine the name of the served model for the OpenAI client.
-            if self.engine_args.served_model_name is not None:
-                served_model_names = self.engine_args.served_model_name
-            else:
-                served_model_names = [self.engine_args.model]
+            # if self.engine_args.served_model_name is not None:
+            #     served_model_names = self.engine_args.served_model_name
+            # else:
+            #     served_model_names = [self.engine_args.model]
+            served_model_names = [self.engine_args.model]
             print(f"Using served model name: {served_model_names}")
             self.openai_serving_chat = OpenAIServingChat(
                 self.engine,
