@@ -260,6 +260,7 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
         worker_use_ray=True,
         dtype="bfloat16",
         enforce_eager=1,
+        block_size=128,
     )
     logger.info(f"Tensor parallelism = {tp}")
     pg_resources = []
