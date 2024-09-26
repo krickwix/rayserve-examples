@@ -31,17 +31,17 @@ app = FastAPI()
 model_name = "NousResearch/Llama-2-7b-chat-hf"
 tp_size = 8
 
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    logger.debug(f"Received request: {request.method} {request.url}")
-    logger.debug(f"Request headers: {request.headers}")
+# @app.middleware("http")
+# async def log_requests(request: Request, call_next):
+#     logger.debug(f"Received request: {request.method} {request.url}")
+#     logger.debug(f"Request headers: {request.headers}")
     
-    response = await call_next(request)
+#     response = await call_next(request)
     
-    logger.debug(f"Response status: {response.status_code}")
-    logger.debug(f"Response headers: {response.headers}")
+#     logger.debug(f"Response status: {response.status_code}")
+#     logger.debug(f"Response headers: {response.headers}")
     
-    return response
+#     return response
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
