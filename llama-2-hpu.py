@@ -258,6 +258,7 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
     tp = tensor_parallel_size
     engine_args = AsyncEngineArgs(
         model=model_name,
+        served_model_name=model_name,
         tensor_parallel_size=tensor_parallel_size,
         worker_use_ray=True,
         dtype="bfloat16",
