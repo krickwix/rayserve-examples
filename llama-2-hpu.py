@@ -111,6 +111,9 @@ class VLLMDeployment:
         self.prompt_adapters = prompt_adapters
         self.request_logger = request_logger
         self.chat_template = chat_template
+        logger.info(f"Initializing VLLMDeployment with model: {self.engine_args.model}")
+        logger.info(f"Tensor parallel size: {self.engine_args.tensor_parallel_size}")
+        logger.info(f"Data type: {self.engine_args.dtype}")
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
 
     # @app.post("/v1/chat/completions")
