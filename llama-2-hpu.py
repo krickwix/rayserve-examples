@@ -208,6 +208,7 @@ class VLLMDeployment:
                 served_model_names = self.engine_args.served_model_name
             else:
                 served_model_names = [self.engine_args.model]
+            print(f"Using served model name: {served_model_names}")
             self.openai_serving_chat = OpenAIServingChat(
                 self.engine,
                 model_config,
