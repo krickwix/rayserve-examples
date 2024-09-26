@@ -116,7 +116,9 @@ class VLLMDeployment:
         logger.info(f"Tensor parallel size: {self.engine_args.tensor_parallel_size}")
         logger.info(f"Data type: {self.engine_args.dtype}")
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
-
+        conf = self.engine.get_model_config()
+        logger.info(f"Model config: {conf}")
+        
     # @app.post("/v1/chat/completions")
     # async def create_chat_completion(self, request: Request):        
     #     try:
