@@ -138,7 +138,7 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
     pg_resources = []
     pg_resources.append({"CPU": 1})  # for the deployment replica
     for i in range(tp):
-        pg_resources.append({"CPU": 1, accelerator: 1})  # for the vLLM actors
+        pg_resources.append({"CPU": 1, "HPU": 1})  # for the vLLM actors
 
     # We use the "STRICT_PACK" strategy below to ensure all vLLM actors are placed on
     # the same Ray node.
