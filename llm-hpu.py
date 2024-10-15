@@ -32,7 +32,6 @@ app = FastAPI()
         "target_ongoing_requests": 5,
     },
     max_ongoing_requests=10,
-    ray_actor_options={"num_cpus": 10, "resources": {"HPU": 1}}
 )
 @serve.ingress(app)
 class VLLMDeployment:
