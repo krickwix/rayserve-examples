@@ -134,14 +134,16 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
     model_name = os.getenv("HF_MODEL_NAME")
     if model_name is None:
         model_name = "meta-llama/Meta-Llama-3-70B-Instruct"
+    
     tp_size = int(os.getenv("TP_SIZE"))
     if tp_size is None:
         tp_size = 8
     engine_args.tensor_parallel_size = tp_size
+
     pp_size = int(os.getenv("PP_SIZE"))
     if pp_size is None:
         pp_size = 1
-    engine_args.pipeline_parallel_size = tp_size
+    engine_args.pipeline_parallel_size = pp_size
 
     engine_args.block_size = 128
     engine_args.model = model_name
