@@ -130,7 +130,8 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
     parsed_args = parse_vllm_args(cli_args)
     engine_args = AsyncEngineArgs.from_cli_args(parsed_args)
     engine_args.worker_use_ray = True
-
+    engine_args.distributed_executor_backend = "ray"
+    
     model_name = os.getenv("HF_MODEL_NAME")
     if model_name is None:
         model_name = "meta-llama/Meta-Llama-3-70B-Instruct"
@@ -148,10 +149,12 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
     engine_args.block_size = 128
     engine_args.model = model_name
     engine_args.tokenizer = model_name
+
     # engine_args.model = "meta-llama/Meta-Llama-3-70B-Instruct"
     # engine_args.tokenizer = "meta-llama/Meta-Llama-3-70B-Instruct"
     # engine_args.tensor_parallel_size = 8
     # engine_args.pipeline_parallel_size = 1
+
     tp = engine_args.tensor_parallel_size * engine_args.pipeline_parallel_size
     logger.info(f"Tensor parallelism = {tp}")
     pg_resources = []
