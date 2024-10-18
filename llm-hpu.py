@@ -141,7 +141,9 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
     pp_size = int(os.getenv("PP_SIZE"))
     if pp_size is None:
         pp_size = 1
+    engine_args.pipeline_parallel_size = tp_size
 
+    engine_args.block_size = 128
     engine_args.model = model_name
     engine_args.tokenizer = model_name
     # engine_args.model = "meta-llama/Meta-Llama-3-70B-Instruct"
