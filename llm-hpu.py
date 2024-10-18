@@ -131,7 +131,7 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
     engine_args = AsyncEngineArgs.from_cli_args(parsed_args)
     engine_args.worker_use_ray = True
     engine_args.distributed_executor_backend = "ray"
-    
+
     model_name = os.getenv("HF_MODEL_NAME")
     if model_name is None:
         model_name = "meta-llama/Meta-Llama-3-70B-Instruct"
@@ -165,7 +165,7 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
     # We use the "STRICT_PACK" strategy below to ensure all vLLM actors are placed on
     # the same Ray node.
     return VLLMDeployment.options(
-        placement_group_bundles=pg_resources, placement_group_strategy="PACK"
+        placement_group_bundles=pg_resources, placement_group_strategy="SPREAD"
     ).bind(
         engine_args,
         parsed_args.response_role,
