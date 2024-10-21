@@ -146,6 +146,10 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
         pp_size = 1
     engine_args.pipeline_parallel_size = pp_size
 
+    _strategy = "PACK"
+    if engine_args.pipeline_parallel_size > 1:
+        _strategy = "SPREAD"
+
     engine_args.block_size = 128
     engine_args.model = model_name
     engine_args.tokenizer = model_name
@@ -163,7 +167,7 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
         pg_resources.append({"CPU": 1, "HPU": 1.0})  # for the vLLM actors
     print(pg_resources)
     return VLLMDeployment.options(
-        placement_group_bundles=pg_resources, placement_group_strategy="PACK"
+        placement_group_bundles=pg_resources, placement_group_strategy=_strategy
     ).bind(
         engine_args,
         parsed_args.response_role,
