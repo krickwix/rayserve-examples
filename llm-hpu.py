@@ -130,7 +130,7 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
     parsed_args = parse_vllm_args(cli_args)
     engine_args = AsyncEngineArgs.from_cli_args(parsed_args)
     engine_args.worker_use_ray = True
-    engine_args.distributed_executor_backend = "ray"
+    # engine_args.distributed_executor_backend = "ray"
 
     model_name = os.getenv("HF_MODEL_NAME")
     if model_name is None:
@@ -162,8 +162,6 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
     for i in range(tp):
         pg_resources.append({"CPU": 1, "HPU": 1.0})  # for the vLLM actors
     print(pg_resources)
-    # We use the "STRICT_PACK" strategy below to ensure all vLLM actors are placed on
-    # the same Ray node.
     return VLLMDeployment.options(
         placement_group_bundles=pg_resources, placement_group_strategy="PACK"
     ).bind(
