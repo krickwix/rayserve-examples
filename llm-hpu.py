@@ -155,17 +155,12 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
     engine_args.model = model_name
     engine_args.tokenizer = model_name
 
-    # engine_args.model = "meta-llama/Meta-Llama-3-70B-Instruct"
-    # engine_args.tokenizer = "meta-llama/Meta-Llama-3-70B-Instruct"
-    # engine_args.tensor_parallel_size = 8
-    # engine_args.pipeline_parallel_size = 1
-
     tp = engine_args.tensor_parallel_size * engine_args.pipeline_parallel_size
     logger.info(f"Tensor parallelism = {tp}")
     pg_resources = []
     pg_resources.append({"CPU": 1, "HPU": 0.0})  # for the deployment replica
     for i in range(tp):
-        pg_resources.append({"CPU": 1, "HPU": 1.0})  # for the vLLM actors
+        pg_resources.append({"CPU": 4, "HPU": 1.0})  # for the vLLM actors
     print(pg_resources)
     return VLLMDeployment.options(
         placement_group_bundles=pg_resources, placement_group_strategy=_strategy
