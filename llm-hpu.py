@@ -159,6 +159,7 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
     engine_args.model = model_name
     engine_args.tokenizer = model_name
     engine_args.enforce_eager = True
+    engine_args.engine_use_ray = True
     tp = engine_args.tensor_parallel_size * engine_args.pipeline_parallel_size
     logger.info(f"Tensor parallelism = {tp}")
     pg_resources = []
