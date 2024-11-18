@@ -151,10 +151,14 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
     if engine_args.pipeline_parallel_size > 1:
         _strategy = "SPREAD"
 
+    route_prefix = os.getenv("ROUTE_PREFIX")
+    if route_prefix is not None:
+        route_prefix = "/"
+
     engine_args.block_size = 128
     engine_args.model = model_name
     engine_args.tokenizer = model_name
-
+    engine_args.enforce_eager = True
     tp = engine_args.tensor_parallel_size * engine_args.pipeline_parallel_size
     logger.info(f"Tensor parallelism = {tp}")
     pg_resources = []
