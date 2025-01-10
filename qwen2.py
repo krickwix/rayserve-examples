@@ -40,7 +40,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-model_name = "Qwen/Qwen2.5-72B-Instruct-GPTQ-Int8"
+model_name = "Qwen/Qwen2.5-72B-Instruct-GPTQ-Int4"
 tp_size = 4
 
 @app.middleware("http")
@@ -197,6 +197,7 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
         model=model_name,
         tensor_parallel_size=tensor_parallel_size,
         worker_use_ray=True,
+        rope_scaling='{"factor": 4.0,"original_max_position_embeddings": 32768,"type": "yarn"}',
     )
     logger.info(f"Tensor parallelism = {tp}")
     pg_resources = []
