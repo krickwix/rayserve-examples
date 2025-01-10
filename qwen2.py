@@ -90,6 +90,8 @@ class VLLMDeployment:
 
         tokenizer = AutoTokenizer.from_pretrained(self.engine_args.model)
         self.chat_template = None
+        self.chat_template_content_format = "text"
+
         if hasattr(tokenizer, 'chat_template') and tokenizer.chat_template is not None:
             try:
                 if isinstance(tokenizer.chat_template, str):
@@ -131,6 +133,7 @@ class VLLMDeployment:
                     self.response_role,
                     lora_modules=self.lora_modules,
                     chat_template=self.chat_template,
+                    chat_template_content_format=self.chat_template_content_format,
                     prompt_adapters=None,
                     request_logger=None
                 )
