@@ -198,7 +198,7 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
         tensor_parallel_size=tensor_parallel_size,
         worker_use_ray=True,
         rope_scaling = {
-            "type": "yarn",
+            "rope_type": "yarn",
             "factor": 4.0,
             "original_max_position_embeddings": 32768,
             "beta_fast": 32,
