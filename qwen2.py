@@ -197,7 +197,7 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
         model=model_name,
         tensor_parallel_size=tensor_parallel_size,
         worker_use_ray=True,
-        rope_scaling={"factor": 4.0,"original_max_position_embeddings": 32768,"type": "yarn"},
+        rope_scaling='{"type": "yarn", "factor": 4.0, "original_max_position_embeddings": 32768, "rope_type": "dingyi"}',
     )
     logger.info(f"Tensor parallelism = {tp}")
     pg_resources = []
