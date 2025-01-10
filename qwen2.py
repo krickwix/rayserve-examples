@@ -40,7 +40,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-model_name = "Qwen/Qwen2.5-72B-Instruct"
+model_name = "Qwen/Qwen2.5-72B-Instruct-GPTQ-Int8"
 tp_size = 4
 
 @app.middleware("http")
