@@ -142,25 +142,76 @@ class VLLMDeployment:
             generator_or_response = await self.openai_serving_chat.create_chat_completion(
                 vllm_request, request
             )
+            
             if isinstance(generator_or_response, ErrorResponse):
-                raise HTTPException(status_code=generator_or_response.code, detail=generator_or_response.message)
+                raise HTTPException(
+                    status_code=generator_or_response.code, 
+                    detail=generator_or_response.message
+                )
 
             if vllm_request.stream:
                 async def openai_stream_generator():
                     async for chunk in generator_or_response:
-                        yield f"data: {json.dumps(chunk)}\n\n"
+                        if isinstance(chunk, str):
+                            # Handle string responses
+                            message_content = chunk
+                            finish_reason = "stop"
+                        else:
+                            # Handle ChatCompletionResponse objects
+                            message_content = chunk.choices[0].message.content
+                            finish_reason = chunk.choices[0].finish_reason
+
+                        response_chunk = {
+                            "id": "chatcmpl-" + ''.join(
+                                random.choices(string.ascii_letters + string.digits, k=29)
+                            ),
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": self.engine_args.model,
+                            "choices": [{
+                                "index": 0,
+                                "delta": {
+                                    "content": message_content
+                                },
+                                "finish_reason": finish_reason
+                            }]
+                        }
+                        yield f"data: {json.dumps(response_chunk)}\n\n"
                     yield "data: [DONE]\n\n"
-                return StreamingResponse(openai_stream_generator(), media_type="text/event-stream")
+                return StreamingResponse(
+                    openai_stream_generator(), 
+                    media_type="text/event-stream"
+                )
             else:
                 if isinstance(generator_or_response, ChatCompletionResponse):
                     response = generator_or_response
+                elif isinstance(generator_or_response, str):
+                    # Handle string responses
+                    response = ChatCompletionResponse(
+                        id="chatcmpl-" + ''.join(
+                            random.choices(string.ascii_letters + string.digits, k=29)
+                        ),
+                        object="chat.completion",
+                        created=int(time.time()),
+                        model=self.engine_args.model,
+                        choices=[{
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": generator_or_response,
+                            },
+                            "finish_reason": "stop",
+                        }],
+                        usage=None
+                    )
                 else:
                     response = await generator_or_response.__anext__()
+                
                 return JSONResponse(content={
-                    "id": "chatcmpl-" + ''.join(random.choices(string.ascii_letters + string.digits, k=29)),
-                    "object": "chat.completion",
-                    "created": int(time.time()),
-                    "model": self.engine_args.model,
+                    "id": response.id,
+                    "object": response.object,
+                    "created": response.created,
+                    "model": response.model,
                     "choices": [{
                         "index": 0,
                         "message": {
@@ -176,23 +227,22 @@ class VLLMDeployment:
         except Exception as e:
             logger.error(f"Error processing request: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
+        @app.get("/v1/models")
+        async def list_models(self):
+            return JSONResponse(content={
+                "data": [
+                    {
+                        "id": self.engine_args.model,
+                        "object": "model",
+                        "created": int(time.time()),
+                        "owned_by": "organization",
+                    }
+                ]
+            })
 
-    @app.get("/v1/models")
-    async def list_models(self):
-        return JSONResponse(content={
-            "data": [
-                {
-                    "id": self.engine_args.model,
-                    "object": "model",
-                    "created": int(time.time()),
-                    "owned_by": "organization",
-                }
-            ]
-        })
-
-    @app.get("/health")
-    async def health_check(self):
-        return {"status": "ok"}
+        @app.get("/health")
+        async def health_check(self):
+            return {"status": "ok"}
 
 def build_app(model_name, tensor_parallel_size) -> serve.Application:
     tp = tensor_parallel_size
