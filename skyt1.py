@@ -121,12 +121,7 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
     for the complete set of arguments.
 
     Supported engine arguments: https://docs.vllm.ai/en/latest/models/engine_args.html.
-    """  # noqa: E501
-    if "accelerator" in cli_args.keys():
-        accelerator = cli_args.pop("accelerator")
-    else:
-        accelerator = "GPU"
-    parsed_args = parse_vllm_args(cli_args)
+    """  
     tp = 4
     engine_args = AsyncEngineArgs(
         model="NovaSky-AI/Sky-T1-32B-Preview",
