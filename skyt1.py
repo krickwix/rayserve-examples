@@ -32,6 +32,16 @@ app = FastAPI()
     },
     max_ongoing_requests=10,
 )
+
+from dataclasses import dataclass
+from typing import List, Optional, Union
+
+@dataclass
+class ModelPath:
+    name: str
+    path: str
+
+
 @serve.ingress(app)
 class VLLMDeployment:
     def __init__(
@@ -39,51 +49,80 @@ class VLLMDeployment:
         engine_args: AsyncEngineArgs,
         response_role: str,
         lora_modules: Optional[List[LoRAModulePath]] = None,
-        prompt_adapters: Optional[List[PromptAdapterPath]] = None,
-        request_logger: Optional[RequestLogger] = None,
-        chat_template: Optional[str] = None,
     ):
-        logger.info(f"Starting with engine args: {engine_args}")
         self.openai_serving_chat = None
         self.engine_args = engine_args
         self.response_role = response_role
         self.lora_modules = lora_modules
-        self.prompt_adapters = prompt_adapters
-        self.request_logger = request_logger
-        self.chat_template = chat_template
+        self.hf_token = os.environ.get("HUGGING_FACE_TOKEN")
+        if not self.hf_token:
+            raise ValueError("HUGGING_FACE_TOKEN environment variable is not set")
+        huggingface_hub.login(token=self.hf_token)
+
+        # Create model paths with proper structure
+        if self.engine_args.served_model_name is not None:
+            self.base_model_paths = [
+                ModelPath(name=name, path=name) 
+                for name in self.engine_args.served_model_name
+            ]
+        else:
+            self.base_model_paths = [
+                ModelPath(name=self.engine_args.model, path=self.engine_args.model)
+            ]
+
+        tokenizer = AutoTokenizer.from_pretrained(self.engine_args.model)
+        self.chat_template = None
+        self.chat_template_content_format = "text"
+
+        if hasattr(tokenizer, 'chat_template') and tokenizer.chat_template is not None:
+            try:
+                if isinstance(tokenizer.chat_template, str):
+                    self.chat_template = json.loads(tokenizer.chat_template)
+                elif isinstance(tokenizer.chat_template, dict):
+                    self.chat_template = tokenizer.chat_template
+                else:
+                    logger.warning(f"Unexpected chat_template type: {type(tokenizer.chat_template)}")
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse chat template as JSON. Using default.")
+        
+        if self.chat_template is None:
+            logger.warning("No valid chat template found in the model. Using default.")
+
+        logger.info(f"Initializing VLLMDeployment with model: {self.engine_args.model}")
+        logger.info(f"Tensor parallel size: {self.engine_args.tensor_parallel_size}")
+        logger.info(f"Data type: {self.engine_args.dtype}")
+
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
 
     @app.post("/v1/chat/completions")
-    async def create_chat_completion(
-        self, request: ChatCompletionRequest, raw_request: Request
-    ):
-        """OpenAI-compatible HTTP endpoint.
+    async def create_chat_completion(self, request: Request):        
+        try:
+            body = await request.json()
+            logger.debug(f"Received chat completion request: {body}")
+            vllm_request = ChatCompletionRequest(**body)
 
-        API reference:
-            - https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html
-        """
-        if not self.openai_serving_chat:
-            model_config = await self.engine.get_model_config()
-            # Determine the name of the served model for the OpenAI client.
-            if self.engine_args.served_model_name is not None:
-                served_model_names = self.engine_args.served_model_name
-            else:
-                served_model_names = [self.engine_args.model]
-            self.openai_serving_chat = OpenAIServingChat(
-                self.engine,
-                model_config,
-                served_model_names,
-                self.response_role,
-                lora_modules=self.lora_modules,
-                prompt_adapters=self.prompt_adapters,
-                request_logger=self.request_logger,
-                chat_template=self.chat_template,
-                chat_template_content_format="text",
+            if not self.openai_serving_chat:
+                logger.info("Initializing OpenAIServingChat")
+                model_config = await self.engine.get_model_config()
+                self.openai_serving_chat = OpenAIServingChat(
+                    self.engine,
+                    model_config,   
+                    self.base_model_paths,  # Pass the properly structured model paths
+                    self.response_role,
+                    lora_modules=self.lora_modules,
+                    chat_template=self.chat_template,
+                    chat_template_content_format=self.chat_template_content_format,
+                    prompt_adapters=None,
+                    request_logger=None
+                )
+
+            logger.debug(f"Calling create_chat_completion with request: {vllm_request}")
+            generator = await self.openai_serving_chat.create_chat_completion(
+                vllm_request, request
             )
-        logger.info(f"Request: {request}")
-        generator = await self.openai_serving_chat.create_chat_completion(
-            request, raw_request
-        )
+        #    generator = await self.openai_serving_chat.create_chat_completion(
+        #     request, raw_request
+        # )
         if isinstance(generator, ErrorResponse):
             return JSONResponse(
                 content=generator.model_dump(), status_code=generator.code
