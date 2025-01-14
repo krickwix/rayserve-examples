@@ -151,3 +151,4 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
         lora_modules=None,
     )
 
+deployment = build_app(model_name="NovaSky-AI/Sky-T1-32B-Preview", tensor_parallel_size=4)
