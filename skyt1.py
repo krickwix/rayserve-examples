@@ -114,7 +114,7 @@ def parse_vllm_args(cli_args: Dict[str, str]):
     return parsed_args
 
 
-def build_app(cli_args: Dict[str, str]) -> serve.Application:
+def build_app(model_name, tensor_parallel_size) -> serve.Application:
     """Builds the Serve app based on CLI arguments.
 
     See https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html#command-line-arguments-for-the-server
