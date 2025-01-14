@@ -106,6 +106,7 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
     tp = 4
     engine_args = AsyncEngineArgs(
         model="NovaSky-AI/Sky-T1-32B-Preview",
+        served_model_name="NovaSky-AI/Sky-T1-32B-Preview",
         tensor_parallel_size=tp,
         worker_use_ray=True,
     )
