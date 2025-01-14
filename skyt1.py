@@ -1,67 +1,29 @@
-import random
-import string
-import time
-import json
-import os
-from typing import List, Optional
+from typing import Dict, Optional, List
+import logging
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI
+from starlette.requests import Request
 from starlette.responses import StreamingResponse, JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
 
 from ray import serve
 
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
+from vllm.entrypoints.openai.cli_args import make_arg_parser
 from vllm.entrypoints.openai.protocol import (
     ChatCompletionRequest,
-    ErrorResponse,
     ChatCompletionResponse,
+    ErrorResponse,
 )
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
-from vllm.entrypoints.openai.serving_engine import LoRAModulePath
-from transformers import AutoTokenizer
-import huggingface_hub
-import logging
+from vllm.entrypoints.openai.serving_engine import LoRAModulePath, PromptAdapterPath
+from vllm.utils import FlexibleArgumentParser
+from vllm.entrypoints.logger import RequestLogger
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("ray.serve")
-logger.setLevel(logging.DEBUG)
 
 app = FastAPI()
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
-)
-
-model_name = "NovaSky-AI/Sky-T1-32B-Preview"
-tp_size = 4
-
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    logger.debug(f"Received request: {request.method} {request.url}")
-    logger.debug(f"Request headers: {request.headers}")
-    
-    response = await call_next(request)
-    
-    logger.debug(f"Response status: {response.status_code}")
-    logger.debug(f"Response headers: {response.headers}")
-    
-    return response
-
-@app.exception_handler(Exception)
-async def generic_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled exception: {exc}")
-    return JSONResponse(
-        status_code=500,
-        content={"error": {"message": str(exc), "type": "internal_server_error"}}
-    )
 
 @serve.deployment(
     autoscaling_config={
@@ -78,191 +40,109 @@ class VLLMDeployment:
         engine_args: AsyncEngineArgs,
         response_role: str,
         lora_modules: Optional[List[LoRAModulePath]] = None,
+        prompt_adapters: Optional[List[PromptAdapterPath]] = None,
+        request_logger: Optional[RequestLogger] = None,
+        chat_template: Optional[str] = None,
     ):
+        logger.info(f"Starting with engine args: {engine_args}")
         self.openai_serving_chat = None
         self.engine_args = engine_args
         self.response_role = response_role
         self.lora_modules = lora_modules
-        self.hf_token = os.environ.get("HUGGING_FACE_TOKEN")
-        if not self.hf_token:
-            raise ValueError("HUGGING_FACE_TOKEN environment variable is not set")
-        huggingface_hub.login(token=self.hf_token)
-
-        tokenizer = AutoTokenizer.from_pretrained(self.engine_args.model)
-        self.chat_template = None
-        self.chat_template_content_format = "text"
-
-        if hasattr(tokenizer, 'chat_template') and tokenizer.chat_template is not None:
-            try:
-                if isinstance(tokenizer.chat_template, str):
-                    self.chat_template = json.loads(tokenizer.chat_template)
-                elif isinstance(tokenizer.chat_template, dict):
-                    self.chat_template = tokenizer.chat_template
-                else:
-                    logger.warning(f"Unexpected chat_template type: {type(tokenizer.chat_template)}")
-            except json.JSONDecodeError:
-                logger.warning("Failed to parse chat template as JSON. Using default.")
-        
-        if self.chat_template is None:
-            logger.warning("No valid chat template found in the model. Using default.")
-
-        logger.info(f"Initializing VLLMDeployment with model: {self.engine_args.model}")
-        logger.info(f"Tensor parallel size: {self.engine_args.tensor_parallel_size}")
-        logger.info(f"Data type: {self.engine_args.dtype}")
-
+        self.prompt_adapters = prompt_adapters
+        self.request_logger = request_logger
+        self.chat_template = chat_template
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
 
     @app.post("/v1/chat/completions")
-    async def create_chat_completion(self, request: Request):        
-        try:
-            body = await request.json()
-            logger.debug(f"Received chat completion request: {body}")
-            vllm_request = ChatCompletionRequest(**body)
+    async def create_chat_completion(
+        self, request: ChatCompletionRequest, raw_request: Request
+    ):
+        """OpenAI-compatible HTTP endpoint.
 
-            if not self.openai_serving_chat:
-                logger.info("Initializing OpenAIServingChat")
-                model_config = await self.engine.get_model_config()
-                if self.engine_args.served_model_name is not None:
-                    served_model_names = self.engine_args.served_model_name
-                else:
-                    served_model_names = [self.engine_args.model]
-                self.openai_serving_chat = OpenAIServingChat(
-                    self.engine,
-                    model_config,   
-                    served_model_names,
-                    self.response_role,
-                    lora_modules=self.lora_modules,
-                    chat_template=self.chat_template,
-                    chat_template_content_format=self.chat_template_content_format,
-                    prompt_adapters=None,
-                    request_logger=None
-                )
-
-            logger.debug(f"Calling create_chat_completion with request: {vllm_request}")
-            generator_or_response = await self.openai_serving_chat.create_chat_completion(
-                vllm_request, request
-            )
-            
-            if isinstance(generator_or_response, ErrorResponse):
-                raise HTTPException(
-                    status_code=generator_or_response.code, 
-                    detail=generator_or_response.message
-                )
-
-            if vllm_request.stream:
-                async def openai_stream_generator():
-                    async for chunk in generator_or_response:
-                        if isinstance(chunk, str):
-                            # Handle string responses
-                            message_content = chunk
-                            finish_reason = "stop"
-                        else:
-                            # Handle ChatCompletionResponse objects
-                            message_content = chunk.choices[0].message.content
-                            finish_reason = chunk.choices[0].finish_reason
-
-                        response_chunk = {
-                            "id": "chatcmpl-" + ''.join(
-                                random.choices(string.ascii_letters + string.digits, k=29)
-                            ),
-                            "object": "chat.completion.chunk",
-                            "created": int(time.time()),
-                            "model": self.engine_args.model,
-                            "choices": [{
-                                "index": 0,
-                                "delta": {
-                                    "content": message_content
-                                },
-                                "finish_reason": finish_reason
-                            }]
-                        }
-                        yield f"data: {json.dumps(response_chunk)}\n\n"
-                    yield "data: [DONE]\n\n"
-                return StreamingResponse(
-                    openai_stream_generator(), 
-                    media_type="text/event-stream"
-                )
+        API reference:
+            - https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html
+        """
+        if not self.openai_serving_chat:
+            model_config = await self.engine.get_model_config()
+            # Determine the name of the served model for the OpenAI client.
+            if self.engine_args.served_model_name is not None:
+                served_model_names = self.engine_args.served_model_name
             else:
-                if isinstance(generator_or_response, ChatCompletionResponse):
-                    response = generator_or_response
-                elif isinstance(generator_or_response, str):
-                    # Handle string responses
-                    response = ChatCompletionResponse(
-                        id="chatcmpl-" + ''.join(
-                            random.choices(string.ascii_letters + string.digits, k=29)
-                        ),
-                        object="chat.completion",
-                        created=int(time.time()),
-                        model=self.engine_args.model,
-                        choices=[{
-                            "index": 0,
-                            "message": {
-                                "role": "assistant",
-                                "content": generator_or_response,
-                            },
-                            "finish_reason": "stop",
-                        }],
-                        usage=None
-                    )
-                else:
-                    response = await generator_or_response.__anext__()
-                
-                return JSONResponse(content={
-                    "id": response.id,
-                    "object": response.object,
-                    "created": response.created,
-                    "model": response.model,
-                    "choices": [{
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": response.choices[0].message.content,
-                        },
-                        "finish_reason": response.choices[0].finish_reason,
-                    }],
-                    "usage": response.usage.model_dump() if response.usage else None,
-                })
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid JSON")
-        except Exception as e:
-            logger.error(f"Error processing request: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
-        @app.get("/v1/models")
-        async def list_models(self):
-            return JSONResponse(content={
-                "data": [
-                    {
-                        "id": self.engine_args.model,
-                        "object": "model",
-                        "created": int(time.time()),
-                        "owned_by": "organization",
-                    }
-                ]
-            })
+                served_model_names = [self.engine_args.model]
+            self.openai_serving_chat = OpenAIServingChat(
+                self.engine,
+                model_config,
+                served_model_names,
+                self.response_role,
+                lora_modules=self.lora_modules,
+                prompt_adapters=self.prompt_adapters,
+                request_logger=self.request_logger,
+                chat_template=self.chat_template,
+            )
+        logger.info(f"Request: {request}")
+        generator = await self.openai_serving_chat.create_chat_completion(
+            request, raw_request
+        )
+        if isinstance(generator, ErrorResponse):
+            return JSONResponse(
+                content=generator.model_dump(), status_code=generator.code
+            )
+        if request.stream:
+            return StreamingResponse(content=generator, media_type="text/event-stream")
+        else:
+            assert isinstance(generator, ChatCompletionResponse)
+            return JSONResponse(content=generator.model_dump())
 
-        @app.get("/health")
-        async def health_check(self):
-            return {"status": "ok"}
 
-def build_app(model_name, tensor_parallel_size) -> serve.Application:
-    tp = tensor_parallel_size
-    engine_args = AsyncEngineArgs(
-        model=model_name,
-        tensor_parallel_size=tensor_parallel_size,
-        worker_use_ray=True,
-        rope_scaling = {
-            "rope_type": "yarn",
-            "factor": 4.0,
-            "original_max_position_embeddings": 32768,
-            "beta_fast": 32,
-            "beta_slow": 1
-        }
+def parse_vllm_args(cli_args: Dict[str, str]):
+    """Parses vLLM args based on CLI inputs.
+
+    Currently uses argparse because vLLM doesn't expose Python models for all of the
+    config options we want to support.
+    """
+    arg_parser = FlexibleArgumentParser(
+        description="vLLM OpenAI-Compatible RESTful API server."
     )
+
+    parser = make_arg_parser(arg_parser)
+    arg_strings = []
+    for key, value in cli_args.items():
+        arg_strings.extend([f"--{key}", str(value)])
+    logger.info(arg_strings)
+    parsed_args = parser.parse_args(args=arg_strings)
+    return parsed_args
+
+
+def build_app(cli_args: Dict[str, str]) -> serve.Application:
+    """Builds the Serve app based on CLI arguments.
+
+    See https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html#command-line-arguments-for-the-server
+    for the complete set of arguments.
+
+    Supported engine arguments: https://docs.vllm.ai/en/latest/models/engine_args.html.
+    """  # noqa: E501
+    if "accelerator" in cli_args.keys():
+        accelerator = cli_args.pop("accelerator")
+    else:
+        accelerator = "GPU"
+    parsed_args = parse_vllm_args(cli_args)
+    tp = 4
+    engine_args = AsyncEngineArgs(
+        model="NovaSky-AI/Sky-T1-32B-Preview",
+        tensor_parallel_size=tp,
+        worker_use_ray=True,
+    )
+
+    tp = 4
     logger.info(f"Tensor parallelism = {tp}")
     pg_resources = []
+    pg_resources.append({"CPU": 1})  # for the deployment replica
     for i in range(tp):
         pg_resources.append({"CPU": 1, "GPU": 1})  # for the vLLM actors
 
+    # We use the "STRICT_PACK" strategy below to ensure all vLLM actors are placed on
+    # the same Ray node.
     return VLLMDeployment.options(
         placement_group_bundles=pg_resources, placement_group_strategy="STRICT_PACK"
     ).bind(
@@ -271,4 +151,3 @@ def build_app(model_name, tensor_parallel_size) -> serve.Application:
         lora_modules=None,
     )
 
-deployment = build_app(model_name=model_name, tensor_parallel_size=tp_size)
