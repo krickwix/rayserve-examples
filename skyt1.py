@@ -9,7 +9,6 @@ from ray import serve
 
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
-from vllm.entrypoints.openai.cli_args import make_arg_parser
 from vllm.entrypoints.openai.protocol import (
     ChatCompletionRequest,
     ChatCompletionResponse,
@@ -93,25 +92,6 @@ class VLLMDeployment:
         else:
             assert isinstance(generator, ChatCompletionResponse)
             return JSONResponse(content=generator.model_dump())
-
-
-def parse_vllm_args(cli_args: Dict[str, str]):
-    """Parses vLLM args based on CLI inputs.
-
-    Currently uses argparse because vLLM doesn't expose Python models for all of the
-    config options we want to support.
-    """
-    arg_parser = FlexibleArgumentParser(
-        description="vLLM OpenAI-Compatible RESTful API server."
-    )
-
-    parser = make_arg_parser(arg_parser)
-    arg_strings = []
-    for key, value in cli_args.items():
-        arg_strings.extend([f"--{key}", str(value)])
-    logger.info(arg_strings)
-    parsed_args = parser.parse_args(args=arg_strings)
-    return parsed_args
 
 
 def build_app(model_name, tensor_parallel_size) -> serve.Application:
