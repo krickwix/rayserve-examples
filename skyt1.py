@@ -23,6 +23,9 @@ logger = logging.getLogger("ray.serve")
 
 app = FastAPI()
 
+from dataclasses import dataclass
+from typing import List, Optional, Union
+
 
 @serve.deployment(
     autoscaling_config={
@@ -32,9 +35,6 @@ app = FastAPI()
     },
     max_ongoing_requests=10,
 )
-
-from dataclasses import dataclass
-from typing import List, Optional, Union
 
 @dataclass
 class ModelPath:
