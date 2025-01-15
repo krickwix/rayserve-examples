@@ -24,6 +24,7 @@ from transformers import AutoTokenizer
 import huggingface_hub
 
 logger = logging.getLogger("ray.serve")
+logger.setLevel(logging.INFO)
 
 app = FastAPI()
 
