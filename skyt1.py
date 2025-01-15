@@ -1,9 +1,13 @@
 from typing import Dict, Optional, List
 import logging
+import os
+import json
+from dataclasses import dataclass
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from starlette.requests import Request
 from starlette.responses import StreamingResponse, JSONResponse
+from starlette.middleware.cors import CORSMiddleware
 
 from ray import serve
 
@@ -15,17 +19,27 @@ from vllm.entrypoints.openai.protocol import (
     ErrorResponse,
 )
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
-from vllm.entrypoints.openai.serving_engine import LoRAModulePath, PromptAdapterPath
-from vllm.utils import FlexibleArgumentParser
-from vllm.entrypoints.logger import RequestLogger
+from vllm.entrypoints.openai.serving_engine import LoRAModulePath
+from transformers import AutoTokenizer
+import huggingface_hub
 
 logger = logging.getLogger("ray.serve")
 
 app = FastAPI()
 
-from dataclasses import dataclass
-from typing import List, Optional, Union
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
+@dataclass
+class ModelPath:
+    name: str
+    path: str
 
 @serve.deployment(
     autoscaling_config={
@@ -35,12 +49,6 @@ from typing import List, Optional, Union
     },
     max_ongoing_requests=10,
 )
-
-@dataclass
-class ModelPath:
-    name: str
-    path: str
-
 
 @serve.ingress(app)
 class VLLMDeployment:
@@ -54,22 +62,34 @@ class VLLMDeployment:
         self.engine_args = engine_args
         self.response_role = response_role
         self.lora_modules = lora_modules
+        
+        # Initialize HuggingFace token
         self.hf_token = os.environ.get("HUGGING_FACE_TOKEN")
         if not self.hf_token:
             raise ValueError("HUGGING_FACE_TOKEN environment variable is not set")
         huggingface_hub.login(token=self.hf_token)
 
         # Create model paths with proper structure
-        if self.engine_args.served_model_name is not None:
+        if isinstance(self.engine_args.served_model_name, str):
+            served_names = [self.engine_args.served_model_name]
+        elif isinstance(self.engine_args.served_model_name, (list, tuple)):
+            served_names = self.engine_args.served_model_name
+        else:
+            served_names = None
+
+        if served_names:
             self.base_model_paths = [
                 ModelPath(name=name, path=name) 
-                for name in self.engine_args.served_model_name
+                for name in served_names
             ]
         else:
             self.base_model_paths = [
                 ModelPath(name=self.engine_args.model, path=self.engine_args.model)
             ]
 
+        logger.info(f"Initialized base model paths: {self.base_model_paths}")
+
+        # Initialize tokenizer and chat template
         tokenizer = AutoTokenizer.from_pretrained(self.engine_args.model)
         self.chat_template = None
         self.chat_template_content_format = "text"
@@ -88,6 +108,7 @@ class VLLMDeployment:
         if self.chat_template is None:
             logger.warning("No valid chat template found in the model. Using default.")
 
+        # Initialize engine
         logger.info(f"Initializing VLLMDeployment with model: {self.engine_args.model}")
         logger.info(f"Tensor parallel size: {self.engine_args.tensor_parallel_size}")
         logger.info(f"Data type: {self.engine_args.dtype}")
@@ -107,7 +128,7 @@ class VLLMDeployment:
                 self.openai_serving_chat = OpenAIServingChat(
                     self.engine,
                     model_config,   
-                    self.base_model_paths,  # Pass the properly structured model paths
+                    self.base_model_paths,
                     self.response_role,
                     lora_modules=self.lora_modules,
                     chat_template=self.chat_template,
@@ -120,51 +141,60 @@ class VLLMDeployment:
             generator = await self.openai_serving_chat.create_chat_completion(
                 vllm_request, request
             )
-        #    generator = await self.openai_serving_chat.create_chat_completion(
-        #     request, raw_request
-        # )
-        if isinstance(generator, ErrorResponse):
-            return JSONResponse(
-                content=generator.model_dump(), status_code=generator.code
-            )
-        if request.stream:
-            return StreamingResponse(content=generator, media_type="text/event-stream")
-        else:
-            assert isinstance(generator, ChatCompletionResponse)
-            return JSONResponse(content=generator.model_dump())
 
+            if isinstance(generator, ErrorResponse):
+                return JSONResponse(
+                    content=generator.model_dump(), 
+                    status_code=generator.code
+                )
 
-def build_app(model_name, tensor_parallel_size) -> serve.Application:
-    """Builds the Serve app based on CLI arguments.
+            if vllm_request.stream:
+                return StreamingResponse(
+                    content=generator, 
+                    media_type="text/event-stream"
+                )
+            else:
+                if not isinstance(generator, ChatCompletionResponse):
+                    generator = await anext(generator)
+                return JSONResponse(
+                    content=generator.model_dump()
+                )
 
-    See https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html#command-line-arguments-for-the-server
-    for the complete set of arguments.
+        except Exception as e:
+            logger.error(f"Error in create_chat_completion: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
 
-    Supported engine arguments: https://docs.vllm.ai/en/latest/models/engine_args.html.
-    """  
-    tp = 4
+def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
+    """Builds the Serve app with the specified model configuration."""
     engine_args = AsyncEngineArgs(
-        model="NovaSky-AI/Sky-T1-32B-Preview",
-        served_model_name="NovaSky-AI/Sky-T1-32B-Preview",
-        tensor_parallel_size=tp,
+        model=model_name,
+        served_model_name=model_name,
+        tensor_parallel_size=tensor_parallel_size,
         worker_use_ray=True,
+        rope_scaling={
+            "type": "dynamic",
+            "factor": 2.0
+        }
     )
 
-    tp = 4
-    logger.info(f"Tensor parallelism = {tp}")
-    pg_resources = []
-    pg_resources.append({"CPU": 1})  # for the deployment replica
-    for i in range(tp):
+    logger.info(f"Tensor parallelism = {tensor_parallel_size}")
+    
+    # Configure placement group resources
+    pg_resources = [{"CPU": 1}]  # for the deployment replica
+    for _ in range(tensor_parallel_size):
         pg_resources.append({"CPU": 1, "GPU": 1})  # for the vLLM actors
 
-    # We use the "STRICT_PACK" strategy below to ensure all vLLM actors are placed on
-    # the same Ray node.
     return VLLMDeployment.options(
-        placement_group_bundles=pg_resources, placement_group_strategy="STRICT_PACK"
+        placement_group_bundles=pg_resources, 
+        placement_group_strategy="STRICT_PACK"
     ).bind(
         engine_args,
         response_role="assistant",
         lora_modules=None,
     )
 
-deployment = build_app(model_name="NovaSky-AI/Sky-T1-32B-Preview", tensor_parallel_size=4)
+# Initialize the deployment
+deployment = build_app(
+    model_name="NovaSky-AI/Sky-T1-32B-Preview", 
+    tensor_parallel_size=4
+)
