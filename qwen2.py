@@ -46,7 +46,7 @@ class ModelPath:
     autoscaling_config={
         "min_replicas": 0,
         "max_replicas": 10,
-        "target_ongoing_requests": 1,
+        "target_ongoing_requests": 2,
     },
     max_ongoing_requests=10,
 )
@@ -116,7 +116,7 @@ class VLLMDeployment:
 
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
 
-    @app.post("/v1/chat/completions")
+    @app.post("/qwen/v1/chat/completions")
     async def create_chat_completion(self, request: Request):        
         try:
             body = await request.json()
@@ -186,7 +186,7 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
     # Configure placement group resources
     pg_resources = [{"CPU": 1}]  # for the deployment replica
     for _ in range(tensor_parallel_size):
-        pg_resources.append({"CPU": 1, "GPU": 1})  # for the vLLM actors
+        pg_resources.append({"CPU": 4, "GPU": 1})  # for the vLLM actors
 
     return VLLMDeployment.options(
         placement_group_bundles=pg_resources, 
@@ -199,6 +199,6 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
 
 # Initialize the deployment
 deployment = build_app(
-    model_name="Qwen/Qwen2.5-72B-Instruct-GPTQ-Int4", 
+    model_name="Qwen/Qwen2.5-72B-Instruct-GPTQ-Int8", 
     tensor_parallel_size=4
 )
