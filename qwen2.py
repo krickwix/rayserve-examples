@@ -56,12 +56,11 @@ class VLLMDeployment:
         self,
         engine_args: AsyncEngineArgs,
         response_role: str,
-        lora_modules: Optional[List[LoRAModulePath]] = None,
     ):
         self.openai_serving_chat = None
         self.engine_args = engine_args
         self.response_role = response_role
-        self.lora_modules = lora_modules
+        self.lora_modules = None
         
         # Initialize HuggingFace token
         self.hf_token = os.environ.get("HUGGING_FACE_TOKEN")
