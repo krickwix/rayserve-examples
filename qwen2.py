@@ -43,7 +43,7 @@ class ModelPath:
 
 @serve.deployment(
     autoscaling_config={
-        "min_replicas": 0,
+        "min_replicas": 1,
         "max_replicas": 10,
         "target_ongoing_requests": 2,
     },
