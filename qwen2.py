@@ -44,7 +44,7 @@ class ModelPath:
 @serve.deployment(
     autoscaling_config={
         "min_replicas": 1,
-        "max_replicas": 8,
+        "max_replicas": 4,
         "target_ongoing_requests": 1,
     },
     max_ongoing_requests=10,
@@ -199,5 +199,5 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
 # Initialize the deployment
 deployment = build_app(
     model_name="Qwen/Qwen2.5-72B-Instruct", 
-    tensor_parallel_size=1
+    tensor_parallel_size=2
 )
