@@ -170,6 +170,7 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
         served_model_name=model_name,
         tensor_parallel_size=tensor_parallel_size,
         worker_use_ray=True,
+        distributed_executor_backend="ray",
         rope_scaling = {
             "rope_type": "yarn",
             "factor": 4.0,
