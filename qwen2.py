@@ -166,7 +166,8 @@ class VLLMDeployment:
 def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
     """Builds the Serve app with the specified model configuration."""
     engine_args = AsyncEngineArgs(
-        model="/opt/data/model/"+model_name,
+        model_dir="/opt/data/models",
+        model=model_name,
         served_model_name=model_name,
         tensor_parallel_size=tensor_parallel_size,
         worker_use_ray=True,
