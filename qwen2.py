@@ -129,10 +129,10 @@ class VLLMDeployment:
                     model_config,   
                     self.base_model_paths,
                     self.response_role,
-                    # lora_modules=self.lora_modules,
+                    lora_modules=self.lora_modules,
                     chat_template=self.chat_template,
                     chat_template_content_format=self.chat_template_content_format,
-                    # prompt_adapters=None,
+                    prompt_adapters=None,
                     request_logger=None
                 )
 
