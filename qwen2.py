@@ -166,7 +166,6 @@ class VLLMDeployment:
 def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
     """Builds the Serve app with the specified model configuration."""
     engine_args = AsyncEngineArgs(
-        model_dir="/opt/data/models",
         model=model_name,
         served_model_name=model_name,
         tensor_parallel_size=tensor_parallel_size,
@@ -198,7 +197,6 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
 
 # Initialize the deployment
 deployment = build_app(
-    # model_name="Qwen/Qwen2.5-72B-Instruct-GPTQ-Int8", 
-    model_name="Qwen2.5-72B-Instruct",
+    model_name="Qwen/Qwen2.5-72B-Instruct", 
     tensor_parallel_size=8
 )
