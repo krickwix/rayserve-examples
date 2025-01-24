@@ -199,5 +199,5 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
 deployment = build_app(
     # model_name="Qwen/Qwen2.5-72B-Instruct-GPTQ-Int8", 
     model_name="mistralai/Mistral-Large-Instruct-2411",
-    tensor_parallel_size=8
+    tensor_parallel_size=4
 )
