@@ -171,6 +171,7 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
         tensor_parallel_size=tensor_parallel_size,
         worker_use_ray=True,
         trust_remote_code=True,
+        enforce_eager=True,
     )
 
     logger.info(f"Tensor parallelism = {tensor_parallel_size}")
