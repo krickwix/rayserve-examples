@@ -175,8 +175,6 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
             "rope_type": "yarn",
             "factor": 4.0,
             "original_max_position_embeddings": 32768,
-            "beta_fast": 32,
-            "beta_slow": 1
         }
     )
 
@@ -199,5 +197,5 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
 # Initialize the deployment
 deployment = build_app(
     model_name="Qwen/Qwen2.5-72B-Instruct", 
-    tensor_parallel_size=2
+    tensor_parallel_size=4
 )
