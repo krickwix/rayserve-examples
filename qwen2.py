@@ -80,15 +80,15 @@ class VLLMDeployment:
 
         logger.debug(f'initialization: served_names = {served_names}')
 
-        if served_names:
-            self.base_model_paths = [
-                ModelPath(name=name, path=name) 
-                for name in served_names
-            ]
-        else:
-            self.base_model_paths = [
-                ModelPath(name=self.engine_args.model, path=self.engine_args.model)
-            ]
+        # if served_names:
+        self.base_model_paths = [
+            ModelPath(name=name, path=name) 
+            for name in served_names
+        ]
+        # else:
+        #     self.base_model_paths = [
+        #         ModelPath(name=self.engine_args.model, path=self.engine_args.model)
+        #     ]
 
         logger.debug(f"Initialized base model paths: {self.base_model_paths}")
 
@@ -200,6 +200,6 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
 
 # Initialize the deployment
 deployment = build_app(
-    model_name="Qwen/Qwen2.5-72B-Instruct", 
+    model_name="Qwen/Qwen2.5-7B-Instruct", 
     tensor_parallel_size=4
 )
