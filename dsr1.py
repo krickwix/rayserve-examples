@@ -174,7 +174,7 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
         enforce_eager=True,
         dtype="bfloat16",
         kv_cache_dtype="fp8_e4m3",
-        max_model_length=32768,
+        max_model_len=32768,
     )
 
     logger.info(f"Tensor parallelism = {tensor_parallel_size}")
