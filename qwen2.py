@@ -62,6 +62,8 @@ class VLLMDeployment:
         self.response_role = response_role
         self.lora_modules = None
         
+        logger.debug(f'initialization: engine_args = {engine_args}')
+
         # Initialize HuggingFace token
         self.hf_token = os.environ.get("HUGGING_FACE_TOKEN")
         if not self.hf_token:
@@ -76,6 +78,8 @@ class VLLMDeployment:
         else:
             served_names = None
 
+        logger.debug(f'initialization: served_names = {served_names}')
+
         if served_names:
             self.base_model_paths = [
                 ModelPath(name=name, path=name) 
@@ -86,7 +90,7 @@ class VLLMDeployment:
                 ModelPath(name=self.engine_args.model, path=self.engine_args.model)
             ]
 
-        logger.info(f"Initialized base model paths: {self.base_model_paths}")
+        logger.debug(f"Initialized base model paths: {self.base_model_paths}")
 
         # Initialize tokenizer and chat template
         tokenizer = AutoTokenizer.from_pretrained(self.engine_args.model)
