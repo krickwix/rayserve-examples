@@ -71,14 +71,14 @@ class VLLMDeployment:
         huggingface_hub.login(token=self.hf_token)
 
         # Create model paths with proper structure
-        if isinstance(self.engine_args.served_model_name, str):
-            served_names = [self.engine_args.served_model_name]
-        elif isinstance(self.engine_args.served_model_name, (list, tuple)):
-            served_names = self.engine_args.served_model_name
-        else:
-            served_names = None
+        # if isinstance(self.engine_args.served_model_name, str):
+        #     served_names = [self.engine_args.served_model_name]
+        # elif isinstance(self.engine_args.served_model_name, (list, tuple)):
+        #     served_names = self.engine_args.served_model_name
+        # else:
+        #     served_names = None
 
-        logger.debug(f'initialization: served_names = {served_names}')
+        # logger.debug(f'initialization: served_names = {served_names}')
 
         # if served_names:
         # self.base_model_paths = [
@@ -90,7 +90,7 @@ class VLLMDeployment:
         #         ModelPath(name=self.engine_args.model, path=self.engine_args.model)
         #     ]
 
-        logger.debug(f"Initialized base model paths: {self.base_model_paths}")
+        # logger.debug(f"Initialized base model paths: {self.base_model_paths}")
 
         # Initialize tokenizer and chat template
         tokenizer = AutoTokenizer.from_pretrained(self.engine_args.model)
