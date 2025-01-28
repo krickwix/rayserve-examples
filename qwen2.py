@@ -133,7 +133,7 @@ class VLLMDeployment:
                     chat_template=self.chat_template,
                     chat_template_content_format=self.chat_template_content_format,
                     # prompt_adapters=None,
-                    # request_logger=None
+                    request_logger=None
                 )
 
             logger.debug(f"Calling create_chat_completion with request: {vllm_request}")
