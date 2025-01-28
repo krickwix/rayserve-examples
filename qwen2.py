@@ -206,6 +206,6 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
 
 # Initialize the deployment
 deployment = build_app(
-    model_name="Qwen/Qwen2.5-7B-Instruct", 
-    tensor_parallel_size=4
+    model_name="Qwen/Qwen2.5-72B-Instruct", 
+    tensor_parallel_size=8
 )
