@@ -171,13 +171,6 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
         tensor_parallel_size=tensor_parallel_size,
         worker_use_ray=True,
         trust_remote_code=True,
-        # rope_scaling = {
-        #     "rope_type": "yarn",
-        #     "factor": 4.0,
-        #     "original_max_position_embeddings": 32768,
-        #     "beta_fast": 32,
-        #     "beta_slow": 1
-        # }
     )
 
     logger.info(f"Tensor parallelism = {tensor_parallel_size}")
@@ -198,7 +191,6 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
 
 # Initialize the deployment
 deployment = build_app(
-    # model_name="Qwen/Qwen2.5-72B-Instruct-GPTQ-Int8", 
     model_name="deepseek-ai/DeepSeek-R1",
     tensor_parallel_size=8
 )
