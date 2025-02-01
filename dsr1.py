@@ -19,11 +19,14 @@ from vllm.entrypoints.openai.protocol import (
     ErrorResponse,
 )
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
+from vllm.entrypoints.openai.serving_models import (BaseModelPath,
+                                                    OpenAIServingModels)
+
 from transformers import AutoTokenizer
 import huggingface_hub
 
 logger = logging.getLogger("ray.serve")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 app = FastAPI()
 
@@ -44,8 +47,8 @@ class ModelPath:
 @serve.deployment(
     autoscaling_config={
         "min_replicas": 1,
-        "max_replicas": 10,
-        "target_ongoing_requests": 2,
+        "max_replicas": 4,
+        "target_ongoing_requests": 1,
     },
     max_ongoing_requests=10,
 )
@@ -62,6 +65,8 @@ class VLLMDeployment:
         self.response_role = response_role
         self.lora_modules = None
         
+        logger.debug(f'initialization: engine_args = {engine_args}')
+
         # Initialize HuggingFace token
         self.hf_token = os.environ.get("HUGGING_FACE_TOKEN")
         if not self.hf_token:
@@ -69,24 +74,26 @@ class VLLMDeployment:
         huggingface_hub.login(token=self.hf_token)
 
         # Create model paths with proper structure
-        if isinstance(self.engine_args.served_model_name, str):
-            served_names = [self.engine_args.served_model_name]
-        elif isinstance(self.engine_args.served_model_name, (list, tuple)):
-            served_names = self.engine_args.served_model_name
-        else:
-            served_names = None
+        # if isinstance(self.engine_args.served_model_name, str):
+        #     served_names = [self.engine_args.served_model_name]
+        # elif isinstance(self.engine_args.served_model_name, (list, tuple)):
+        #     served_names = self.engine_args.served_model_name
+        # else:
+        #     served_names = None
 
-        if served_names:
-            self.base_model_paths = [
-                ModelPath(name=name, path=name) 
-                for name in served_names
-            ]
-        else:
-            self.base_model_paths = [
-                ModelPath(name=self.engine_args.model, path=self.engine_args.model)
-            ]
+        # logger.debug(f'initialization: served_names = {served_names}')
 
-        logger.info(f"Initialized base model paths: {self.base_model_paths}")
+        # if served_names:
+        # self.base_model_paths = [
+        #     ModelPath(name=name, path=name) 
+        #     for name in served_names
+        # ]
+        # else:
+        #     self.base_model_paths = [
+        #         ModelPath(name=self.engine_args.model, path=self.engine_args.model)
+        #     ]
+
+        # logger.debug(f"Initialized base model paths: {self.base_model_paths}")
 
         # Initialize tokenizer and chat template
         tokenizer = AutoTokenizer.from_pretrained(self.engine_args.model)
@@ -124,10 +131,13 @@ class VLLMDeployment:
             if not self.openai_serving_chat:
                 logger.info("Initializing OpenAIServingChat")
                 model_config = await self.engine.get_model_config()
+                MODEL_NAME = self.engine_args.model
+                BASE_MODEL_PATHS = [BaseModelPath(name=MODEL_NAME, model_path=MODEL_NAME)]
+                models = OpenAIServingModels(self.engine, model_config, BASE_MODEL_PATHS)
                 self.openai_serving_chat = OpenAIServingChat(
                     self.engine,
                     model_config,   
-                    self.base_model_paths,
+                    models,
                     self.response_role,
                     # lora_modules=self.lora_modules,
                     chat_template=self.chat_template,
@@ -167,14 +177,15 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
     """Builds the Serve app with the specified model configuration."""
     engine_args = AsyncEngineArgs(
         model=model_name,
-        served_model_name=model_name,
+        # served_model_name=model_name,
         tensor_parallel_size=tensor_parallel_size,
         # worker_use_ray=True,
-        trust_remote_code=True,
-        enforce_eager=True,
-        dtype="bfloat16",
-        kv_cache_dtype="fp8_e4m3",
-        max_model_len=32768,
+        distributed_executor_backend="ray",
+        rope_scaling = {
+            "rope_type": "yarn",
+            "factor": 4.0,
+            "original_max_position_embeddings": 32768,
+        }
     )
 
     logger.info(f"Tensor parallelism = {tensor_parallel_size}")
@@ -195,6 +206,6 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
 
 # Initialize the deployment
 deployment = build_app(
-    model_name="deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+    model_name="deepseek-ai/DeepSeek-R1-Distill-Llama-70B", 
     tensor_parallel_size=8
 )
