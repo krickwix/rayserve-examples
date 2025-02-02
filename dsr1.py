@@ -206,6 +206,6 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
 
 # Initialize the deployment
 deployment = build_app(
-    model_name="deepseek-ai/DeepSeek-R1-Distill-Llama-70B", 
+    model_name="deepseek-ai/DeepSeek-R1-Distill-Qwen-32B", 
     tensor_parallel_size=8
 )
