@@ -202,6 +202,6 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
 
 # Initialize the deployment
 deployment = build_app(
-    model_name="allenai/Llama-3.1-Tulu-3-405B", 
+    model_name="allenai/Llama-3.1-Tulu-3-70B", 
     tensor_parallel_size=8
 )
