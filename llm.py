@@ -201,7 +201,7 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
 
 # Initialize the deployment
 model_name = os.getenv("HF_MODEL_NAME")
-tensor_parallel_size = os.getenv("TENSOR_PARALLEL_SIZE")
+tensor_parallel_size = int(os.getenv("TENSOR_PARALLEL_SIZE"))
 deployment = build_app(
     model_name=model_name,
     tensor_parallel_size=tensor_parallel_size,
