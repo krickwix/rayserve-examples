@@ -3,6 +3,7 @@ import logging
 import os
 import json
 from dataclasses import dataclass
+import ast
 
 from fastapi import FastAPI, HTTPException
 from starlette.requests import Request
@@ -173,16 +174,41 @@ class VLLMDeployment:
             logger.error(f"Error in create_chat_completion: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
 
+def parse_engine_args(args_str: str) -> dict:
+    """
+    Parse engine arguments from a string representation into a dictionary.
+    Handles nested structures and common Python types.
+    """
+    if not args_str:
+        return {}
+    try:
+        # Convert string representation to Python literal structure
+        parsed_args = ast.literal_eval(args_str)
+        if not isinstance(parsed_args, dict):
+            raise ValueError("ENGINE_ARGS must evaluate to a dictionary")
+        return parsed_args
+    except (SyntaxError, ValueError) as e:
+        logger.error(f"Failed to parse ENGINE_ARGS: {e}")
+        raise ValueError(f"Invalid ENGINE_ARGS format: {e}")
+
 def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
     """Builds the Serve app with the specified model configuration."""
-    engine_args = AsyncEngineArgs(
-        model=model_name,
-        # served_model_name=model_name,
-        tensor_parallel_size=tensor_parallel_size,
-        # worker_use_ray=True,
-        distributed_executor_backend="ray",
-        trust_remote_code=True,
-    )
+
+    # Get additional engine arguments from environment
+    engine_args_str = os.getenv("ENGINE_ARGS", "{}")
+    additional_args = parse_engine_args(engine_args_str)
+
+    # Base engine arguments
+    base_args = {
+        "model": model_name,
+        "tensor_parallel_size": tensor_parallel_size,
+        "distributed_executor_backend": "ray",
+        "trust_remote_code": True,
+    }
+    # Merge base arguments with additional arguments
+    combined_args = {**base_args, **additional_args}
+    logger.info(f"Initializing engine with arguments: {combined_args}")
+    engine_args = AsyncEngineArgs(**combined_args)
 
     logger.info(f"Tensor parallelism = {tensor_parallel_size}")
     
