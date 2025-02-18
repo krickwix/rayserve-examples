@@ -144,7 +144,9 @@ class VLLMDeployment:
                     chat_template=self.chat_template,
                     chat_template_content_format=self.chat_template_content_format,
                     # prompt_adapters=None,
-                    request_logger=None
+                    request_logger=None,
+                    enable_auto_tool_choice=True,
+                    tool_call_parser="mistral"
                 )
 
             logger.debug(f"Calling create_chat_completion with request: {vllm_request}")
@@ -204,8 +206,6 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
         "tensor_parallel_size": tensor_parallel_size,
         "distributed_executor_backend": "ray",
         "trust_remote_code": True,
-        "enable_auto_tool_choice": True,
-        "tool_call_parser": "mistral"
     }
     # Merge base arguments with additional arguments
     combined_args = {**base_args, **additional_args}
