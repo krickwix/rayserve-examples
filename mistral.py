@@ -145,8 +145,8 @@ class VLLMDeployment:
                     chat_template_content_format=self.chat_template_content_format,
                     # prompt_adapters=None,
                     request_logger=None,
-                    enable_auto_tool_choice=True,
-                    tool_call_parser="mistral"
+                    enable_auto_tools=True,
+                    tool_parser="mistral"
                 )
 
             logger.debug(f"Calling create_chat_completion with request: {vllm_request}")
