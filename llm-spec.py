@@ -31,6 +31,22 @@ logger.setLevel(logging.DEBUG)
 
 app = FastAPI()
 
+from typing import List
+from pydantic import BaseModel, Field
+
+class ModelObject(BaseModel):
+    id: str
+    object: str = "model"
+    created: int 
+    owned_by: str
+    permission: List[dict] = Field(default_factory=list)
+    root: str = None
+    parent: str = None
+
+class ModelsResponse(BaseModel):
+    object: str = "list"
+    data: List[ModelObject]
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -99,6 +115,42 @@ class VLLMDeployment:
         logger.info(f"Data type: {self.engine_args.dtype}")
 
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
+
+    @app.get("/v1/models")
+    async def list_models(self):
+        """List the available models in the API."""
+        try:
+            # Get the model name from engine args
+            model_name = self.engine_args.model
+            
+            # Create a timestamp (typically when the model was added to your system)
+            # Using a fixed timestamp for simplicity
+            created_timestamp = 1677610602  # You can use time.time() for current time
+            
+            # Extract organization name from model path if possible
+            # For HF models, this is typically the org/repo format
+            parts = model_name.split('/')
+            org = parts[0] if len(parts) > 1 else "owner"
+            
+            # Create the model object
+            model = ModelObject(
+                id=model_name,
+                created=created_timestamp,
+                owned_by=org,
+                permission=[{"id": "modelperm-" + model_name, "object": "model_permission", 
+                            "created": created_timestamp, "allow_create_engine": False,
+                            "allow_sampling": True, "allow_logprobs": True,
+                            "allow_search_indices": False, "allow_view": True,
+                            "allow_fine_tuning": False, "organization": "*",
+                            "group": None, "is_blocking": False}]
+            )
+            
+            # Return the models response
+            return ModelsResponse(data=[model])
+            
+        except Exception as e:
+            logger.error(f"Error in list_models: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
 
     @app.post("/v1/chat/completions")
     async def create_chat_completion(self, request: Request):        
