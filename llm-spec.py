@@ -184,7 +184,7 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
         "trust_remote_code": True,
         "speculative_model": "[ngram]",
         "num_speculative_tokens": 5,
-        "ngram_prompt_lookup_max": 4,
+        "ngram_prompt_lookup_max": 3,
         "use_v2_block_manager": True,
     }
     # Merge base arguments with additional arguments
