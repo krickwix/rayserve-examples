@@ -74,32 +74,10 @@ class VLLMDeployment:
             raise ValueError("HUGGING_FACE_TOKEN environment variable is not set")
         huggingface_hub.login(token=self.hf_token)
 
-        # Create model paths with proper structure
-        # if isinstance(self.engine_args.served_model_name, str):
-        #     served_names = [self.engine_args.served_model_name]
-        # elif isinstance(self.engine_args.served_model_name, (list, tuple)):
-        #     served_names = self.engine_args.served_model_name
-        # else:
-        #     served_names = None
-
-        # logger.debug(f'initialization: served_names = {served_names}')
-
-        # if served_names:
-        # self.base_model_paths = [
-        #     ModelPath(name=name, path=name) 
-        #     for name in served_names
-        # ]
-        # else:
-        #     self.base_model_paths = [
-        #         ModelPath(name=self.engine_args.model, path=self.engine_args.model)
-        #     ]
-
-        # logger.debug(f"Initialized base model paths: {self.base_model_paths}")
-
         # Initialize tokenizer and chat template
         tokenizer = AutoTokenizer.from_pretrained(self.engine_args.model)
         self.chat_template = None
-        self.chat_template_content_format = "text"
+        # self.chat_template_content_format = "text"
 
         if hasattr(tokenizer, 'chat_template') and tokenizer.chat_template is not None:
             try:
