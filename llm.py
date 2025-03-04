@@ -56,6 +56,9 @@ class ModelsResponse(BaseModel):
     object: str = "list"
     data: List[ModelObject]
 
+def models(request: Request) -> OpenAIServingModels:
+    return request.app.state.openai_serving_models
+
 @dataclass
 class ModelPath:
     name: str
@@ -170,11 +173,13 @@ class VLLMDeployment:
             raise HTTPException(status_code=500, detail=str(e))
 
     @app.get("/v1/models")
-    async def list_models(self):
+    async def list_models(self, request: Request):
         """List the available models in the API."""
         try:            
-            # Return the models response
-            return self.models.show_available_models()
+            handler = models(request)
+
+            models_ = await handler.show_available_models()
+            return JSONResponse(content=models_.model_dump())
             
         except Exception as e:
             logger.error(f"Error in list_models: {str(e)}")
