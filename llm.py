@@ -40,6 +40,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from typing import List
+from pydantic import BaseModel, Field
+
+class ModelObject(BaseModel):
+    id: str
+    object: str = "model"
+    created: int 
+    owned_by: str
+    permission: List[dict] = Field(default_factory=list)
+    root: str = None
+    parent: str = None
+
+class ModelsResponse(BaseModel):
+    object: str = "list"
+    data: List[ModelObject]
+
 @dataclass
 class ModelPath:
     name: str
@@ -53,6 +69,7 @@ class ModelPath:
     },
     max_ongoing_requests=10,
 )
+
 
 @serve.ingress(app)
 class VLLMDeployment:
@@ -74,32 +91,9 @@ class VLLMDeployment:
             raise ValueError("HUGGING_FACE_TOKEN environment variable is not set")
         huggingface_hub.login(token=self.hf_token)
 
-        # Create model paths with proper structure
-        # if isinstance(self.engine_args.served_model_name, str):
-        #     served_names = [self.engine_args.served_model_name]
-        # elif isinstance(self.engine_args.served_model_name, (list, tuple)):
-        #     served_names = self.engine_args.served_model_name
-        # else:
-        #     served_names = None
-
-        # logger.debug(f'initialization: served_names = {served_names}')
-
-        # if served_names:
-        # self.base_model_paths = [
-        #     ModelPath(name=name, path=name) 
-        #     for name in served_names
-        # ]
-        # else:
-        #     self.base_model_paths = [
-        #         ModelPath(name=self.engine_args.model, path=self.engine_args.model)
-        #     ]
-
-        # logger.debug(f"Initialized base model paths: {self.base_model_paths}")
-
         # Initialize tokenizer and chat template
         tokenizer = AutoTokenizer.from_pretrained(self.engine_args.model)
         self.chat_template = None
-        self.chat_template_content_format = "text"
 
         if hasattr(tokenizer, 'chat_template') and tokenizer.chat_template is not None:
             try:
@@ -173,6 +167,43 @@ class VLLMDeployment:
         except Exception as e:
             logger.error(f"Error in create_chat_completion: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/v1/models")
+    async def list_models(self):
+        """List the available models in the API."""
+        try:
+            # Get the model name from engine args
+            model_name = self.engine_args.model
+            
+            # Create a timestamp (typically when the model was added to your system)
+            # Using a fixed timestamp for simplicity
+            created_timestamp = 1677610602  # You can use time.time() for current time
+            
+            # Extract organization name from model path if possible
+            # For HF models, this is typically the org/repo format
+            parts = model_name.split('/')
+            org = parts[0] if len(parts) > 1 else "owner"
+            
+            # Create the model object
+            model = ModelObject(
+                id=model_name,
+                created=created_timestamp,
+                owned_by=org,
+                permission=[{"id": "modelperm-" + model_name, "object": "model_permission", 
+                            "created": created_timestamp, "allow_create_engine": False,
+                            "allow_sampling": True, "allow_logprobs": True,
+                            "allow_search_indices": False, "allow_view": True,
+                            "allow_fine_tuning": False, "organization": "*",
+                            "group": None, "is_blocking": False}]
+            )
+            
+            # Return the models response
+            return ModelsResponse(data=[model])
+            
+        except Exception as e:
+            logger.error(f"Error in list_models: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
+
 
 def parse_engine_args(args_str: str) -> dict:
     """
