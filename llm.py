@@ -86,6 +86,7 @@ class VLLMDeployment:
         self.engine_args = engine_args
         self.response_role = response_role
         self.lora_modules = None
+        self.model_config = None
 
         async def set_model_config():
             self.model_config = await self.engine.get_model_config()
