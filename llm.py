@@ -176,6 +176,7 @@ class VLLMDeployment:
     async def list_models(self, request: Request):
         """List the available models in the API."""
         try:            
+            logger.info(f"self.models: {self.models}")
             logger.info(f"request: {request}")
             handler = models(request)
             logger.info(f"handler: {handler}")
