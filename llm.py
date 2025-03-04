@@ -119,6 +119,13 @@ class VLLMDeployment:
         logger.info(f"Data type: {self.engine_args.dtype}")
 
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
+        set_model_config()
+        MODEL_NAME = self.engine_args.model
+        BASE_MODEL_PATHS = [BaseModelPath(name=MODEL_NAME, model_path=MODEL_NAME)]
+        self.models = OpenAIServingModels(self.engine, self.model_config, BASE_MODEL_PATHS)
+        logger.info(f"self.models: {self.models}")
+        async def set_model_config():
+            self.model_config = await self.engine.get_model_config()
 
     @app.post("/v1/chat/completions")
     async def create_chat_completion(self, request: Request):        
