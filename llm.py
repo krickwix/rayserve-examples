@@ -176,9 +176,11 @@ class VLLMDeployment:
     async def list_models(self, request: Request):
         """List the available models in the API."""
         try:            
+            logger.info(f"request: {request}")
             handler = models(request)
-
+            logger.info(f"handler: {handler}")
             models_ = await handler.show_available_models()
+            logger.info(f"models_: {models_}")
             return JSONResponse(content=models_.model_dump())
             
         except Exception as e:
@@ -216,6 +218,7 @@ def build_app(model_name: str, tensor_parallel_size: int) -> serve.Application:
         "tensor_parallel_size": tensor_parallel_size,
         "distributed_executor_backend": "ray",
         "trust_remote_code": True,
+        "enforce_eager": True
     }
     # Merge base arguments with additional arguments
     combined_args = {**base_args, **additional_args}
