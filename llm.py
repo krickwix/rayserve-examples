@@ -174,7 +174,7 @@ class VLLMDeployment:
         """List the available models in the API."""
         try:            
             # Return the models response
-            return self.models.show_available_models
+            return self.models.show_available_models()
             
         except Exception as e:
             logger.error(f"Error in list_models: {str(e)}")
