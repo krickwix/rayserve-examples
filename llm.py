@@ -86,6 +86,9 @@ class VLLMDeployment:
         self.engine_args = engine_args
         self.response_role = response_role
         self.lora_modules = None
+
+        async def set_model_config():
+            self.model_config = await self.engine.get_model_config()
         
         logger.debug(f'initialization: engine_args = {engine_args}')
 
@@ -124,8 +127,6 @@ class VLLMDeployment:
         BASE_MODEL_PATHS = [BaseModelPath(name=MODEL_NAME, model_path=MODEL_NAME)]
         self.models = OpenAIServingModels(self.engine, self.model_config, BASE_MODEL_PATHS)
         logger.info(f"self.models: {self.models}")
-        async def set_model_config():
-            self.model_config = await self.engine.get_model_config()
 
     @app.post("/v1/chat/completions")
     async def create_chat_completion(self, request: Request):        
