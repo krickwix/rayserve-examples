@@ -172,34 +172,9 @@ class VLLMDeployment:
     @app.get("/v1/models")
     async def list_models(self):
         """List the available models in the API."""
-        try:
-            # Get the model name from engine args
-            model_name = self.engine_args.model
-            
-            # Create a timestamp (typically when the model was added to your system)
-            # Using a fixed timestamp for simplicity
-            created_timestamp = 1677610602  # You can use time.time() for current time
-            
-            # Extract organization name from model path if possible
-            # For HF models, this is typically the org/repo format
-            parts = model_name.split('/')
-            org = parts[0] if len(parts) > 1 else "owner"
-            
-            # Create the model object
-            model = ModelObject(
-                id=model_name,
-                created=created_timestamp,
-                owned_by=org,
-                permission=[{"id": "modelperm-" + model_name, "object": "model_permission", 
-                            "created": created_timestamp, "allow_create_engine": False,
-                            "allow_sampling": True, "allow_logprobs": True,
-                            "allow_search_indices": False, "allow_view": True,
-                            "allow_fine_tuning": False, "organization": "*",
-                            "group": None, "is_blocking": False}]
-            )
-            
+        try:            
             # Return the models response
-            return ModelsResponse(data=[model])
+            return self.models.show_available_models
             
         except Exception as e:
             logger.error(f"Error in list_models: {str(e)}")
