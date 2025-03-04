@@ -78,6 +78,7 @@ class VLLMDeployment:
         engine_args: AsyncEngineArgs,
         response_role: str,
     ):
+        self.models : None
         self.openai_serving_chat = None
         self.engine_args = engine_args
         self.response_role = response_role
@@ -128,11 +129,11 @@ class VLLMDeployment:
                 model_config = await self.engine.get_model_config()
                 MODEL_NAME = self.engine_args.model
                 BASE_MODEL_PATHS = [BaseModelPath(name=MODEL_NAME, model_path=MODEL_NAME)]
-                models = OpenAIServingModels(self.engine, model_config, BASE_MODEL_PATHS)
+                self.models = OpenAIServingModels(self.engine, model_config, BASE_MODEL_PATHS)
                 self.openai_serving_chat = OpenAIServingChat(
                     self.engine,
                     model_config,   
-                    models,
+                    self.models,
                     self.response_role,
                     # lora_modules=self.lora_modules,
                     chat_template=self.chat_template,
